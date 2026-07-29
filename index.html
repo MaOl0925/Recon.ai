@@ -359,6 +359,10 @@
             <div class="switch" id="live-data-toggle"><div class="knob"></div></div>
           </div>
           <div class="toggle-row">
+            <div><div class="tr-label">Live club form (openfootball)</div><div class="tr-sub">Independent free source — enriches demo players with real recent results</div></div>
+            <div class="switch" id="openfootball-toggle"><div class="knob"></div></div>
+          </div>
+          <div class="toggle-row">
             <div><div class="tr-label">Understat &amp; FBref</div><div class="tr-sub">Not connectable client-side — no public API, needs a backend fetch job. See PRD Section 13.</div></div>
           </div>
           <div class="section-label">Pitch-side reliability</div>
@@ -560,6 +564,7 @@ function runSearch(text){
    server-side job, per PRD Section 13, not a client fetch. */
 const SB_BASE = "https://raw.githubusercontent.com/hudl/open-data/master/data";
 let liveMode = false;
+let openfootballMode = false;
 let liveContext = null;   // { label, players: [...] }
 let liveLoadPromise = null;
 let liveLoadFailed = false;
@@ -690,7 +695,79 @@ function runLiveSearch(text, players){
   return {parsed:{filters}, fellBack:false, results, totalMatches};
 }
 
-/* ---------------- Portable storage (claude.ai window.storage, falls back to localStorage when deployed) ---------------- */
+/* ---------------- Live data source #2: openfootball (independent GitHub-hosted, no key) ---------------- */
+/* Deliberately a SEPARATE fetch, from a SEPARATE GitHub org/repo, hit in parallel with StatsBomb —
+   this is the "multiple data sources" proof: two independently-hosted free sources, fetched and
+   merged in the same response, neither aware the other exists. Real fixture/result data (England
+   leagues only — Championship covers Leeds/Preston, League Two covers Crewe); no player-level
+   stats here, so it enriches the existing player cards with real recent club form rather than
+   replacing them. */
+const OPENFOOTBALL_BASE = "https://raw.githubusercontent.com/openfootball/football.json/master";
+const OPENFOOTBALL_SEASONS = ["2024-25"]; // most recently confirmed-available season for this free dataset
+const OPENFOOTBALL_LEAGUES = ["en.1","en.2","en.3","en.4"]; // Prem, Championship, League One, League Two
+let openfootballCache = null;
+let openfootballLoadPromise = null;
+
+async function ofFetch(path){
+  const res = await fetch(OPENFOOTBALL_BASE + path);
+  if(!res.ok) throw new Error('openfootball fetch failed: ' + path + ' (' + res.status + ')');
+  return res.json();
+}
+
+async function loadOpenfootball(){
+  if(openfootballCache) return openfootballCache;
+  if(openfootballLoadPromise) return openfootballLoadPromise;
+
+  openfootballLoadPromise = (async ()=>{
+    const season = OPENFOOTBALL_SEASONS[0];
+    // fetch all four English tiers in parallel — a second demonstration of parallel multi-call fetching, this time within one source
+    const results = await Promise.all(
+      OPENFOOTBALL_LEAGUES.map(code =>
+        ofFetch(`/${season}/${code}.json`).catch(()=>null) // one league failing shouldn't sink the rest
+      )
+    );
+    const allMatches = [];
+    results.forEach(league=>{ if(league && league.matches) allMatches.push(...league.matches); });
+    if(allMatches.length === 0) throw new Error('openfootball: no leagues loaded');
+    openfootballCache = { season, matches: allMatches };
+    return openfootballCache;
+  })().catch(err=>{
+    openfootballLoadPromise = null;
+    throw err;
+  });
+
+  return openfootballLoadPromise;
+}
+
+function clubFormFromMatches(matches, clubName){
+  const key = clubName.split(' ')[0].toLowerCase(); // loose match — "Preston" matches "Preston North End"
+  const played = matches
+    .filter(m => m.score && m.score.ft && ((m.team1||'').toLowerCase().includes(key) || (m.team2||'').toLowerCase().includes(key)))
+    .sort((a,b)=> new Date(b.date) - new Date(a.date))
+    .slice(0,5);
+  if(played.length === 0) return null;
+  const form = played.map(m=>{
+    const isHome = (m.team1||'').toLowerCase().includes(key);
+    const [hg, ag] = m.score.ft;
+    const gf = isHome ? hg : ag, ga = isHome ? ag : hg;
+    return gf > ga ? 'W' : gf < ga ? 'L' : 'D';
+  }).reverse().join('');
+  const latest = played[0];
+  return { form, latestText: `${latest.team1} ${latest.score.ft[0]}–${latest.score.ft[1]} ${latest.team2}` };
+}
+
+async function enrichWithClubForm(results){
+  try{
+    const ctx = await loadOpenfootball();
+    results.forEach(p=>{
+      const f = clubFormFromMatches(ctx.matches, p.club);
+      p.clubForm = f; // null if this club isn't in the four English tiers covered (e.g. PSV, Rangers)
+    });
+    return true;
+  } catch(e){
+    return false;
+  }
+}
 const hasNativeStorage = (typeof window !== 'undefined') && !!window.storage;
 async function kvGet(key){
   if(hasNativeStorage){
@@ -890,8 +967,22 @@ function sendMessage(){
   }, 650);
 }
 
-function finishTurn(turnEl, threadId, query, response, sourceLabel){
-  const block = buildAssistantBlock(response, true, sourceLabel);
+async function finishTurn(turnEl, threadId, query, response, sourceLabel){
+  let usedOpenfootball = false;
+  if(openfootballMode){
+    usedOpenfootball = await enrichWithClubForm(response.results);
+  }
+  let combinedLabel = sourceLabel;
+  if(usedOpenfootball){
+    combinedLabel = sourceLabel
+      ? sourceLabel + ' · + openfootball (live club form, independent source)'
+      : 'Live · openfootball — real club form, England leagues';
+  } else if(openfootballMode){
+    combinedLabel = sourceLabel
+      ? sourceLabel + ' · openfootball unreachable — form data skipped'
+      : null;
+  }
+  const block = buildAssistantBlock(response, true, combinedLabel);
   if(threadId === currentThreadId){
     turnEl.appendChild(block);
     scrollToBottom();
@@ -933,11 +1024,12 @@ function buildAssistantBlock(response, animate, sourceLabel){
     card.style.animationDelay = animate ? (idx*70)+'ms' : '0ms';
     const showGbe = canSee('gbe');
     const showValueStat = canSee('value') || p.statLabel !== 'VALUE';
+    const formHtml = p.clubForm ? ` · <span style="font-family:'IBM Plex Mono',monospace; color:var(--sage); letter-spacing:.05em;">${p.clubForm.form}</span>` : '';
     card.innerHTML = `
       <div class="avatar">${p.name.split(' ').map(w=>w[0]).join('')}</div>
       <div class="pcard-mid">
         <div class="pcard-name">${p.name}</div>
-        <div class="pcard-sub">${p.pos} · ${p.club}${p.age?' · '+p.age:''}${(p.gbe && showGbe) ? ' <span class="gbe-dot"></span>GBE' : ''}</div>
+        <div class="pcard-sub">${p.pos} · ${p.club}${p.age?' · '+p.age:''}${(p.gbe && showGbe) ? ' <span class="gbe-dot"></span>GBE' : ''}${formHtml}</div>
       </div>
       <div class="pcard-stat">${showValueStat ? `<div class="val">${p.statVal}</div><div class="lab">${p.statLabel}</div>` : `<div class="val" style="color:var(--text-dim); font-size:11px;">Restricted</div>`}</div>`;
     card.onclick = ()=> openProfile(p);
@@ -992,6 +1084,10 @@ function openProfile(p){
   } else {
     eligibilityHtml = `<div class="gbe-card ${p.gbe?'':'no'}"><div class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0E1712" stroke-width="3">${p.gbe? '<path d="M20 6 9 17l-5-5"/>':'<path d="M6 6l12 12M18 6 6 18"/>'}</svg></div><div class="gbe-card-text"><b>${p.gbe ? 'GBE eligible' : 'GBE not currently met'}</b><span>${p.gbe ? 'Meets standard points threshold' : 'Below points threshold — check ESC route'}</span></div></div>`;
   }
+  const formHtml = p.clubForm
+    ? `<div class="section-label">Recent club form <span style="color:var(--text-dim); text-transform:none; letter-spacing:0;">— openfootball, live</span></div>
+       <div class="toggle-row"><div><div class="tr-label" style="font-family:'IBM Plex Mono',monospace; letter-spacing:.1em; color:var(--sage);">${p.clubForm.form}</div><div class="tr-sub">Last result: ${p.clubForm.latestText}</div></div></div>`
+    : '';
   profileScroll.innerHTML = `
     <div class="profile-head">
       <div class="avatar-lg">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
@@ -999,6 +1095,7 @@ function openProfile(p){
     </div>
     <div class="section-label">Eligibility</div>
     ${eligibilityHtml}
+    ${formHtml}
     <div class="section-label">${isLive ? 'This match' : 'Per-90 profile'}</div>
     <div id="stat-rows"></div>
   `;
@@ -1037,6 +1134,10 @@ document.getElementById('live-data-toggle').onclick = function(){
   this.classList.toggle('on');
   liveMode = this.classList.contains('on');
 };
+document.getElementById('openfootball-toggle').onclick = function(){
+  this.classList.toggle('on');
+  openfootballMode = this.classList.contains('on');
+};
 
 /* ---------------- Connectivity — pitch-side signal resilience ---------------- */
 let isOnline = navigator.onLine !== false;
@@ -1072,9 +1173,16 @@ window.addEventListener('online', ()=> setConnState(true));
 window.addEventListener('offline', ()=> setConnState(false));
 
 function resolveQueuedTurn(q){
-  const finish = (response, sourceLabel)=>{
+  const finish = async (response, sourceLabel)=>{
     q.typingEl.remove();
-    const block = buildAssistantBlock(response, true, sourceLabel);
+    let usedOpenfootball = false;
+    if(openfootballMode){
+      usedOpenfootball = await enrichWithClubForm(response.results);
+    }
+    const combinedLabel = usedOpenfootball
+      ? (sourceLabel ? sourceLabel + ' · + openfootball (live club form, independent source)' : 'Live · openfootball — real club form, England leagues')
+      : sourceLabel;
+    const block = buildAssistantBlock(response, true, combinedLabel);
     if(q.threadId === currentThreadId){
       q.turnEl.appendChild(block);
       scrollToBottom();
