@@ -14,7 +14,7 @@
  *   4. The app reads them as plain static JSON at runtime — no key involved at that point.
  */
 
-const API_KEY = process.env.FOOTBALL_DATA_KEY || "6acfa44e969d4ee4809651d4b9542c4d" ;
+const API_KEY = process.env.FOOTBALL_DATA_KEY || "PASTE_YOUR_KEY_HERE" ;
 const BASE = "https://api.football-data.org/v4";
 
 // Championship (Leeds, Preston) and Eredivisie (PSV). Add more codes if needed,
