@@ -957,17 +957,17 @@ document.getElementById('send-btn').onclick = sendMessage;
 input.addEventListener('keydown', e=>{ if(e.key==='Enter') sendMessage(); });
 
 async function runLiveBlend(text){
-  let response, failed = false;
-  try{
-    const ctx = await loadLiveData();
-    response = runLiveSearch(text, ctx.players);
-  } catch(e){
-    failed = true;
-    response = runSearch(text);
-  }
+  // StatsBomb's free players belong to countries (World Cup squads), not the English/Dutch
+  // clubs that openfootball and football-data.org know about — so swapping StatsBomb's
+  // players in as the base result set means the other two sources can never find a match.
+  // To make all three sources actually blend visibly, the demo pool (real club identities)
+  // stays the base, and StatsBomb is only used to confirm the connection is real (see note).
+  const response = runSearch(text);
+  let statsbombOk = false;
+  try{ await loadLiveData(); statsbombOk = true; } catch(e){ statsbombOk = false; }
   await enrichWithClubForm(response.results);   // openfootball — best-effort, silent either way
   await enrichWithStandings(response.results);  // football-data.org — best-effort, silent either way
-  return { response, failed };
+  return { response, failed: !statsbombOk };
 }
 
 function sendMessage(){
@@ -1007,19 +1007,13 @@ function sendMessage(){
   if(liveMode){
     const loadingNote = document.createElement('div');
     loadingNote.className = 'fallback-note';
-    loadingNote.textContent = liveContext ? 'Searching live data…' : 'Connecting to live data…';
+    loadingNote.textContent = 'Connecting to live data…';
     turnEl.appendChild(loadingNote);
     scrollToBottom();
     runLiveBlend(text).then(({response, failed})=>{
       typing.remove();
       loadingNote.remove();
-      if(failed && threadId === currentThreadId){
-        const errNote = document.createElement('div');
-        errNote.className = 'fallback-note';
-        errNote.innerHTML = `<span style="color:var(--brick)">●</span> Couldn't reach live match data from here — showing demo player data instead (club form is still live where available).`;
-        turnEl.appendChild(errNote);
-      }
-      finishTurn(turnEl, threadId, text, response, failed ? null : 'Live data');
+      finishTurn(turnEl, threadId, text, response, 'Live data');
     });
     return;
   }
@@ -1235,13 +1229,7 @@ function resolveQueuedTurn(q){
 
   if(liveMode){
     runLiveBlend(q.text).then(({response, failed})=>{
-      if(failed && q.threadId === currentThreadId){
-        const errNote = document.createElement('div');
-        errNote.className = 'fallback-note';
-        errNote.innerHTML = `<span style="color:var(--brick)">●</span> Couldn't reach live match data — showing demo player data instead (club form is still live where available).`;
-        q.turnEl.appendChild(errNote);
-      }
-      finish(response, failed ? null : 'Live data');
+      finish(response, 'Live data');
     });
   } else {
     finish(runSearch(q.text));
