@@ -355,15 +355,8 @@
         <div class="profile-scroll">
           <div class="section-label">Data sources</div>
           <div class="toggle-row">
-            <div><div class="tr-label">Live StatsBomb data (via Hudl)</div><div class="tr-sub">Real match data — replaces demo players below</div></div>
+            <div><div class="tr-label">Live data</div><div class="tr-sub">Blends real match data (StatsBomb), real club form (openfootball), and real league standings (football-data.org) into one response, presented as a single source</div></div>
             <div class="switch" id="live-data-toggle"><div class="knob"></div></div>
-          </div>
-          <div class="toggle-row">
-            <div><div class="tr-label">Live club form (openfootball)</div><div class="tr-sub">Independent free source — enriches demo players with real recent results</div></div>
-            <div class="switch" id="openfootball-toggle"><div class="knob"></div></div>
-          </div>
-          <div class="toggle-row">
-            <div><div class="tr-label">Understat &amp; FBref</div><div class="tr-sub">Not connectable client-side — no public API, needs a backend fetch job. See PRD Section 13.</div></div>
           </div>
           <div class="section-label">Pitch-side reliability</div>
           <div class="toggle-row">
@@ -564,7 +557,6 @@ function runSearch(text){
    server-side job, per PRD Section 13, not a client fetch. */
 const SB_BASE = "https://raw.githubusercontent.com/hudl/open-data/master/data";
 let liveMode = false;
-let openfootballMode = false;
 let liveContext = null;   // { label, players: [...] }
 let liveLoadPromise = null;
 let liveLoadFailed = false;
@@ -768,6 +760,67 @@ async function enrichWithClubForm(results){
     return false;
   }
 }
+
+/* ---------------- Live data source #3: football-data.org (pre-fetched, static, same-origin) ---------------- */
+/* Unlike StatsBomb/openfootball, football-data.org needs a secret API key, so it's never called
+   live from this page. Instead these are static JSON files pre-fetched once with fetch-football-data.js
+   and committed to the repo's /data folder — the key never touches the deployed site. This will only
+   resolve once actually deployed with that data/ folder present; inside the claude.ai preview sandbox
+   there's no such folder to fetch, so it fails and is silently skipped, same as any other source gap. */
+const FD_FILES = ["data/football-data-elc.json", "data/football-data-ded.json"];
+let footballDataCache = null;
+let footballDataLoadPromise = null;
+
+async function loadFootballData(){
+  if(footballDataCache) return footballDataCache;
+  if(footballDataLoadPromise) return footballDataLoadPromise;
+
+  footballDataLoadPromise = (async ()=>{
+    const files = await Promise.all(
+      FD_FILES.map(path => fetch(path).then(r=>{ if(!r.ok) throw new Error(path+' '+r.status); return r.json(); }))
+    );
+    const standings = [];
+    files.forEach(file=>{
+      const group = (file.standings || []).find(s=>s.type === 'TOTAL') || (file.standings || [])[0];
+      if(!group) return;
+      group.table.forEach(row=>{
+        standings.push({
+          competition: file.competition,
+          team: row.team.name,
+          position: row.position,
+          played: row.playedGames,
+          points: row.points,
+        });
+      });
+    });
+    if(standings.length === 0) throw new Error('football-data.org: no standings loaded');
+    footballDataCache = { standings };
+    return footballDataCache;
+  })().catch(err=>{
+    footballDataLoadPromise = null;
+    throw err;
+  });
+
+  return footballDataLoadPromise;
+}
+
+function standingForClub(standings, clubName){
+  const key = clubName.split(' ')[0].toLowerCase();
+  return standings.find(s => s.team.toLowerCase().includes(key)) || null;
+}
+
+async function enrichWithStandings(results){
+  try{
+    const ctx = await loadFootballData();
+    results.forEach(p=>{
+      p.standing = standingForClub(ctx.standings, p.club); // null if club's league isn't pre-fetched
+    });
+    return true;
+  } catch(e){
+    return false;
+  }
+}
+
 const hasNativeStorage = (typeof window !== 'undefined') && !!window.storage;
 async function kvGet(key){
   if(hasNativeStorage){
@@ -903,6 +956,20 @@ document.querySelectorAll('.ex-chip').forEach(el=>{
 document.getElementById('send-btn').onclick = sendMessage;
 input.addEventListener('keydown', e=>{ if(e.key==='Enter') sendMessage(); });
 
+async function runLiveBlend(text){
+  let response, failed = false;
+  try{
+    const ctx = await loadLiveData();
+    response = runLiveSearch(text, ctx.players);
+  } catch(e){
+    failed = true;
+    response = runSearch(text);
+  }
+  await enrichWithClubForm(response.results);   // openfootball — best-effort, silent either way
+  await enrichWithStandings(response.results);  // football-data.org — best-effort, silent either way
+  return { response, failed };
+}
+
 function sendMessage(){
   const text = input.value.trim();
   if(!text) return;
@@ -940,23 +1007,19 @@ function sendMessage(){
   if(liveMode){
     const loadingNote = document.createElement('div');
     loadingNote.className = 'fallback-note';
-    loadingNote.textContent = liveContext ? 'Searching live match data…' : 'Connecting to StatsBomb Open Data (via Hudl)…';
+    loadingNote.textContent = liveContext ? 'Searching live data…' : 'Connecting to live data…';
     turnEl.appendChild(loadingNote);
     scrollToBottom();
-    loadLiveData().then(ctx=>{
+    runLiveBlend(text).then(({response, failed})=>{
       typing.remove();
       loadingNote.remove();
-      finishTurn(turnEl, threadId, text, runLiveSearch(text, ctx.players), `Live · StatsBomb Open Data (via Hudl) — ${ctx.label}`);
-    }).catch(()=>{
-      typing.remove();
-      loadingNote.remove();
-      if(threadId === currentThreadId){
+      if(failed && threadId === currentThreadId){
         const errNote = document.createElement('div');
         errNote.className = 'fallback-note';
-        errNote.innerHTML = `<span style="color:var(--brick)">●</span> Couldn't reach StatsBomb Open Data from here (network/CORS) — showing demo data instead.`;
+        errNote.innerHTML = `<span style="color:var(--brick)">●</span> Couldn't reach live match data from here — showing demo player data instead (club form is still live where available).`;
         turnEl.appendChild(errNote);
       }
-      finishTurn(turnEl, threadId, text, runSearch(text));
+      finishTurn(turnEl, threadId, text, response, failed ? null : 'Live data');
     });
     return;
   }
@@ -967,22 +1030,8 @@ function sendMessage(){
   }, 650);
 }
 
-async function finishTurn(turnEl, threadId, query, response, sourceLabel){
-  let usedOpenfootball = false;
-  if(openfootballMode){
-    usedOpenfootball = await enrichWithClubForm(response.results);
-  }
-  let combinedLabel = sourceLabel;
-  if(usedOpenfootball){
-    combinedLabel = sourceLabel
-      ? sourceLabel + ' · + openfootball (live club form, independent source)'
-      : 'Live · openfootball — real club form, England leagues';
-  } else if(openfootballMode){
-    combinedLabel = sourceLabel
-      ? sourceLabel + ' · openfootball unreachable — form data skipped'
-      : null;
-  }
-  const block = buildAssistantBlock(response, true, combinedLabel);
+function finishTurn(turnEl, threadId, query, response, sourceLabel){
+  const block = buildAssistantBlock(response, true, sourceLabel);
   if(threadId === currentThreadId){
     turnEl.appendChild(block);
     scrollToBottom();
@@ -1088,6 +1137,10 @@ function openProfile(p){
     ? `<div class="section-label">Recent club form <span style="color:var(--text-dim); text-transform:none; letter-spacing:0;">— openfootball, live</span></div>
        <div class="toggle-row"><div><div class="tr-label" style="font-family:'IBM Plex Mono',monospace; letter-spacing:.1em; color:var(--sage);">${p.clubForm.form}</div><div class="tr-sub">Last result: ${p.clubForm.latestText}</div></div></div>`
     : '';
+  const standingHtml = p.standing
+    ? `<div class="section-label">League standing <span style="color:var(--text-dim); text-transform:none; letter-spacing:0;">— football-data.org, live</span></div>
+       <div class="toggle-row"><div><div class="tr-label">${ordinal(p.standing.position)} in ${p.standing.competition}</div><div class="tr-sub">${p.standing.points} pts from ${p.standing.played} played</div></div></div>`
+    : '';
   profileScroll.innerHTML = `
     <div class="profile-head">
       <div class="avatar-lg">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
@@ -1096,6 +1149,7 @@ function openProfile(p){
     <div class="section-label">Eligibility</div>
     ${eligibilityHtml}
     ${formHtml}
+    ${standingHtml}
     <div class="section-label">${isLive ? 'This match' : 'Per-90 profile'}</div>
     <div id="stat-rows"></div>
   `;
@@ -1134,10 +1188,6 @@ document.getElementById('live-data-toggle').onclick = function(){
   this.classList.toggle('on');
   liveMode = this.classList.contains('on');
 };
-document.getElementById('openfootball-toggle').onclick = function(){
-  this.classList.toggle('on');
-  openfootballMode = this.classList.contains('on');
-};
 
 /* ---------------- Connectivity — pitch-side signal resilience ---------------- */
 let isOnline = navigator.onLine !== false;
@@ -1173,16 +1223,9 @@ window.addEventListener('online', ()=> setConnState(true));
 window.addEventListener('offline', ()=> setConnState(false));
 
 function resolveQueuedTurn(q){
-  const finish = async (response, sourceLabel)=>{
+  const finish = (response, sourceLabel)=>{
     q.typingEl.remove();
-    let usedOpenfootball = false;
-    if(openfootballMode){
-      usedOpenfootball = await enrichWithClubForm(response.results);
-    }
-    const combinedLabel = usedOpenfootball
-      ? (sourceLabel ? sourceLabel + ' · + openfootball (live club form, independent source)' : 'Live · openfootball — real club form, England leagues')
-      : sourceLabel;
-    const block = buildAssistantBlock(response, true, combinedLabel);
+    const block = buildAssistantBlock(response, true, sourceLabel);
     if(q.threadId === currentThreadId){
       q.turnEl.appendChild(block);
       scrollToBottom();
@@ -1191,16 +1234,14 @@ function resolveQueuedTurn(q){
   };
 
   if(liveMode){
-    loadLiveData().then(ctx=>{
-      finish(runLiveSearch(q.text, ctx.players), `Live · StatsBomb Open Data (via Hudl) — ${ctx.label}`);
-    }).catch(()=>{
-      if(q.threadId === currentThreadId){
+    runLiveBlend(q.text).then(({response, failed})=>{
+      if(failed && q.threadId === currentThreadId){
         const errNote = document.createElement('div');
         errNote.className = 'fallback-note';
-        errNote.innerHTML = `<span style="color:var(--brick)">●</span> Couldn't reach StatsBomb Open Data — showing demo data instead.`;
+        errNote.innerHTML = `<span style="color:var(--brick)">●</span> Couldn't reach live match data — showing demo player data instead (club form is still live where available).`;
         q.turnEl.appendChild(errNote);
       }
-      finish(runSearch(q.text));
+      finish(response, failed ? null : 'Live data');
     });
   } else {
     finish(runSearch(q.text));
@@ -1294,6 +1335,11 @@ async function seedDemoAdminIfNeeded(){
   await saveAccounts();
 }
 
+function ordinal(n){
+  const s = ['th','st','nd','rd'];
+  const v = n % 100;
+  return n + (s[(v-20)%10] || s[v] || s[0]);
+}
 function initials(name){
   return (name||'').trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase() || '?';
 }
