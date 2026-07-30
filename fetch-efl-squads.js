@@ -67,6 +67,7 @@ async function fetchSquad(teamId) {
   const data = await apiGet(`/players/squads?team=${teamId}`);
   if (!data.response || data.response.length === 0) return [];
   return data.response[0].players.map((p) => ({
+    id: p.id,
     name: p.name,
     age: p.age,
     position: p.position,
