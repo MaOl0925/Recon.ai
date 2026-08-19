@@ -127,6 +127,7 @@
   .ex-chip:hover{ border-color:var(--gold); color:var(--text); }
 
   .composer{ background:var(--surface); border:1px solid var(--line); border-radius:22px; padding:8px 8px 8px 16px; display:flex; align-items:center; gap:8px; }
+  .legal-footer{ text-align:center; font-size:11px; color:var(--text-muted); padding:9px 20px 3px; line-height:1.45; }
   #query-input{ background:transparent; border:none; outline:none; color:var(--text); font-family:'Inter',sans-serif; font-size:14px; width:100%; }
   #query-input::placeholder{ color:var(--text-dim); }
   .icon-btn{ flex:0 0 auto; width:32px;height:32px; border-radius:50%; background:var(--surface-2); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; opacity:.6; }
@@ -208,6 +209,13 @@
   .btn-danger-sm{ font-size:11px; color:var(--brick); border:1px solid rgba(178,75,66,.4); background:rgba(178,75,66,.08); padding:6px 10px; border-radius:8px; cursor:pointer; flex:0 0 auto; }
   .btn-ghost-sm{ font-size:11px; color:var(--text-muted); border:1px solid var(--line); background:var(--surface-2); padding:6px 10px; border-radius:8px; cursor:pointer; flex:0 0 auto; }
   .team-empty{ font-size:12px; color:var(--text-dim); padding:8px 0; }
+  .real-section{ margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
+  .real-section-head{ display:flex; align-items:center; gap:7px; margin-bottom:9px; }
+  .real-section-head .rlabel{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-dim); }
+  .real-badge{ font-size:9px; background:rgba(212,166,58,.15); color:var(--gold); padding:2px 7px; border-radius:6px; letter-spacing:.05em; text-transform:uppercase; font-weight:600; }
+  .real-pcard{ background:var(--surface); border:1px solid rgba(212,166,58,.2); border-radius:var(--radius); padding:10px 13px; display:flex; align-items:center; gap:11px; margin-bottom:7px; cursor:default; }
+  .real-pcard .avatar{ background:linear-gradient(145deg,#2C2410,#1B1F26); border-color:rgba(212,166,58,.3); }
+  .real-more{ font-size:11.5px; color:var(--text-dim); padding:2px 2px 0; }
   .auth-note{ font-size:11px; color:var(--text-dim); line-height:1.6; margin-top:24px; padding-top:18px; border-top:1px solid var(--line); }
 </style>
 </head>
@@ -226,6 +234,7 @@
     </div>
     <div class="auth-panel" id="panel-activate">
       <div class="auth-logo"><div class="mark">RE<span>CON</span></div><p>Activate your invite</p></div>
+      <div class="auth-field"><label>Club</label><input id="activate-club" type="text" placeholder="e.g. Preston North End"></div>
       <div class="auth-field"><label>Invite code</label><input id="activate-code" type="text" autocapitalize="characters" placeholder="e.g. 7F3K9QRT"></div>
       <div class="auth-field"><label>Set your password</label><input id="activate-password" type="password" autocomplete="new-password"></div>
       <div class="auth-field"><label>Confirm password</label><input id="activate-password2" type="password" autocomplete="new-password"></div>
@@ -236,7 +245,7 @@
     </div>
     <div class="auth-panel" id="panel-forgot">
       <div class="auth-logo"><div class="mark">RE<span>CON</span></div><p>Reset your password</p></div>
-      <div class="auth-field"><label>Username</label><input id="forgot-username" type="text" autocomplete="username" autocapitalize="off"></div>
+      <div class="auth-field"><label>Email</label><input id="forgot-username" type="text" autocomplete="username" autocapitalize="off"></div>
       <div class="auth-error" id="forgot-error"></div>
       <button class="auth-btn" id="forgot-submit">Send reset code</button>
       <div class="auth-switch"><b id="go-login-from-forgot">Back to sign in</b></div>
@@ -295,6 +304,7 @@
             <div class="icon-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/></svg></div>
             <button class="send-btn" id="send-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
           </div>
+          <div class="legal-footer">Player statistics shown are illustrative demo data and do not reflect verified real-world performance. Not intended to inform recruitment or transfer decisions.</div>
         </div>
 
         <div class="overlay" id="overlay"></div>
@@ -387,6 +397,7 @@
         <div class="statusbar"></div>
         <div class="profile-nav"><div class="back-btn" data-close-secondary><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg></div></div>
         <div class="profile-scroll">
+          <div class="auth-note" id="team-save-warning" style="display:none; color:var(--brick); border-color:rgba(178,75,66,.35); background:rgba(178,75,66,.08);">⚠ Something on this screen — an invite, a revoke, or a permission change — didn't save just now. Try again before relying on it.</div>
           <div class="section-label">Invite a team member</div>
           <div class="auth-field"><label>Full name</label><input id="invite-name" type="text"></div>
           <div class="auth-field"><label>Work email</label><input id="invite-email" type="text" placeholder="name@club.co.uk" autocapitalize="off"></div>
@@ -434,27 +445,34 @@
 <script>
 /* ---------------- Synthetic player pool ---------------- */
 const POOL = [
-  {name:"J. Okafor", club:"Preston North End", age:24, pos:"CB", value:2.1, gbe:true, s:{aerial:5.8, passAcc:81, interceptions:2.1, tackles:2.6, xg:0.02, goals:0.01, sot:0, turnovers:0.8, keyPasses:0.1}},
-  {name:"M. Hallgren", club:"PSV Eindhoven", age:26, pos:"CB", value:4.6, gbe:true, s:{aerial:5.4, passAcc:88, interceptions:1.7, tackles:2.1, xg:0.01, goals:0.0, sot:0, turnovers:0.5, keyPasses:0.2}},
-  {name:"D. Reyes", club:"Crewe Alexandra", age:21, pos:"CB", value:0.45, gbe:true, s:{aerial:5.1, passAcc:76, interceptions:2.4, tackles:2.9, xg:0.0, goals:0.0, sot:0, turnovers:1.1, keyPasses:0.0}},
-  {name:"O. Bassong", club:"Rangers", age:29, pos:"CB", value:1.6, gbe:false, s:{aerial:6.1, passAcc:79, interceptions:1.9, tackles:2.3, xg:0.02, goals:0.0, sot:0, turnovers:0.9, keyPasses:0.1}},
+  {name:"J. Okafor", club:"Preston North End", age:24, pos:"CB", value:2.1, gbe:true, s:{aerial:5.8, passAcc:81, interceptions:2.1, tackles:2.6, xg:0.02, goals:0.01, sot:0, turnovers:0.8, keyPasses:0.1, appearances:30, minutes:2580, rating:7.44, assists:7, yellowCards:8, redCards:0, duelsWon:3.9}},
+  {name:"M. Hallgren", club:"PSV Eindhoven", age:26, pos:"CB", value:4.6, gbe:true, s:{aerial:5.4, passAcc:88, interceptions:1.7, tackles:2.1, xg:0.01, goals:0.0, sot:0, turnovers:0.5, keyPasses:0.2, appearances:26, minutes:1872, rating:7.53, assists:5, yellowCards:2, redCards:1, duelsWon:3.3}},
+  {name:"D. Reyes", club:"Crewe Alexandra", age:21, pos:"CB", value:0.45, gbe:true, s:{aerial:5.1, passAcc:76, interceptions:2.4, tackles:2.9, xg:0.0, goals:0.0, sot:0, turnovers:1.1, keyPasses:0.0, appearances:37, minutes:3145, rating:7.22, assists:5, yellowCards:0, redCards:0, duelsWon:4.2}},
+  {name:"O. Bassong", club:"Rangers", age:29, pos:"CB", value:1.6, gbe:false, s:{aerial:6.1, passAcc:79, interceptions:1.9, tackles:2.3, xg:0.02, goals:0.0, sot:0, turnovers:0.9, keyPasses:0.1, appearances:38, minutes:2736, rating:7.0, assists:1, yellowCards:3, redCards:0, duelsWon:2.5}},
 
-  {name:"T. Virtanen", club:"Rangers", age:23, pos:"ST", value:3.8, gbe:true, s:{xg:0.61, goals:0.31, sot:39, turnovers:1.2, aerial:2.1, passAcc:68, keyPasses:0.8, interceptions:0.2}},
-  {name:"B. Okoli", club:"Leeds United", age:20, pos:"ST", value:1.2, gbe:false, s:{xg:0.54, goals:0.29, sot:36, turnovers:1.4, aerial:1.8, passAcc:64, keyPasses:0.7, interceptions:0.1}},
-  {name:"K. Larsen", club:"Preston North End", age:22, pos:"ST", value:0.9, gbe:true, s:{xg:0.48, goals:0.22, sot:33, turnovers:1.6, aerial:2.4, passAcc:61, keyPasses:0.6, interceptions:0.2}},
-  {name:"F. Adeyemi", club:"PSV Eindhoven", age:26, pos:"ST", value:5.2, gbe:true, s:{xg:0.58, goals:0.55, sot:44, turnovers:0.9, aerial:1.9, passAcc:71, keyPasses:1.0, interceptions:0.2}},
+  {name:"T. Virtanen", club:"Rangers", age:23, pos:"ST", value:3.8, gbe:true, s:{xg:0.61, goals:0.31, sot:39, turnovers:1.2, aerial:2.1, passAcc:68, keyPasses:0.8, interceptions:0.2, appearances:30, minutes:2700, rating:6.48, assists:4, yellowCards:7, redCards:0, duelsWon:4.8}},
+  {name:"B. Okoli", club:"Leeds United", age:20, pos:"ST", value:1.2, gbe:false, s:{xg:0.54, goals:0.29, sot:36, turnovers:1.4, aerial:1.8, passAcc:64, keyPasses:0.7, interceptions:0.1, appearances:37, minutes:2812, rating:6.46, assists:3, yellowCards:7, redCards:0, duelsWon:5.5}},
+  {name:"K. Larsen", club:"Preston North End", age:22, pos:"ST", value:0.9, gbe:true, s:{xg:0.48, goals:0.22, sot:33, turnovers:1.6, aerial:2.4, passAcc:61, keyPasses:0.6, interceptions:0.2, appearances:31, minutes:2387, rating:7.33, assists:6, yellowCards:2, redCards:1, duelsWon:4.8}},
+  {name:"F. Adeyemi", club:"PSV Eindhoven", age:26, pos:"ST", value:5.2, gbe:true, s:{xg:0.58, goals:0.55, sot:44, turnovers:0.9, aerial:1.9, passAcc:71, keyPasses:1.0, interceptions:0.2, appearances:34, minutes:2482, rating:7.04, assists:7, yellowCards:8, redCards:0, duelsWon:4.0}},
 
-  {name:"A. Mensah", club:"PSV Eindhoven", age:22, pos:"WG", value:2.9, gbe:true, s:{keyPasses:2.4, dribbles:3.1, passAcc:79, xg:0.22, goals:0.14, sot:18, turnovers:1.8, aerial:0.6, interceptions:0.3}},
-  {name:"R. Coelho", club:"Rangers", age:19, pos:"WG", value:0.6, gbe:false, s:{keyPasses:2.6, dribbles:3.6, passAcc:74, xg:0.19, goals:0.11, sot:16, turnovers:2.1, aerial:0.4, interceptions:0.2}},
-  {name:"E. Nwosu", club:"Leeds United", age:24, pos:"WG", value:1.9, gbe:true, s:{keyPasses:1.9, dribbles:2.4, passAcc:81, xg:0.17, goals:0.12, sot:15, turnovers:1.3, aerial:0.5, interceptions:0.3}},
+  {name:"A. Mensah", club:"PSV Eindhoven", age:22, pos:"WG", value:2.9, gbe:true, s:{keyPasses:2.4, dribbles:3.1, passAcc:79, xg:0.22, goals:0.14, sot:18, turnovers:1.8, aerial:0.6, interceptions:0.3, appearances:31, minutes:2449, rating:6.89, assists:1, yellowCards:6, redCards:0, duelsWon:3.5}},
+  {name:"R. Coelho", club:"Rangers", age:19, pos:"WG", value:0.6, gbe:false, s:{keyPasses:2.6, dribbles:3.6, passAcc:74, xg:0.19, goals:0.11, sot:16, turnovers:2.1, aerial:0.4, interceptions:0.2, appearances:22, minutes:1980, rating:6.68, assists:7, yellowCards:0, redCards:1, duelsWon:4.5}},
+  {name:"E. Nwosu", club:"Leeds United", age:24, pos:"WG", value:1.9, gbe:true, s:{keyPasses:1.9, dribbles:2.4, passAcc:81, xg:0.17, goals:0.12, sot:15, turnovers:1.3, aerial:0.5, interceptions:0.3, appearances:30, minutes:2160, rating:6.41, assists:2, yellowCards:5, redCards:0, duelsWon:3.0}},
 
-  {name:"S. Novak", club:"Leeds United", age:27, pos:"FB", value:1.8, gbe:true, s:{tackles:3.2, passAcc:83, interceptions:1.6, keyPasses:1.1, aerial:1.4, xg:0.03, goals:0.01, sot:2, turnovers:0.9}},
-  {name:"P. Adeyemi", club:"Crewe Alexandra", age:22, pos:"FB", value:0.35, gbe:true, s:{tackles:2.9, passAcc:77, interceptions:1.8, keyPasses:0.9, aerial:1.2, xg:0.02, goals:0.0, sot:1, turnovers:1.2}},
-  {name:"L. Girard", club:"Rangers", age:25, pos:"FB", value:1.5, gbe:false, s:{tackles:3.0, passAcc:80, interceptions:1.5, keyPasses:1.3, aerial:1.6, xg:0.02, goals:0.01, sot:2, turnovers:1.0}},
+  {name:"S. Novak", club:"Leeds United", age:27, pos:"FB", value:1.8, gbe:true, s:{tackles:3.2, passAcc:83, interceptions:1.6, keyPasses:1.1, aerial:1.4, xg:0.03, goals:0.01, sot:2, turnovers:0.9, appearances:24, minutes:1920, rating:6.68, assists:1, yellowCards:8, redCards:0, duelsWon:5.9}},
+  {name:"P. Adeyemi", club:"Crewe Alexandra", age:22, pos:"FB", value:0.35, gbe:true, s:{tackles:2.9, passAcc:77, interceptions:1.8, keyPasses:0.9, aerial:1.2, xg:0.02, goals:0.0, sot:1, turnovers:1.2, appearances:27, minutes:2295, rating:6.48, assists:4, yellowCards:1, redCards:0, duelsWon:4.6}},
+  {name:"L. Girard", club:"Rangers", age:25, pos:"FB", value:1.5, gbe:false, s:{tackles:3.0, passAcc:80, interceptions:1.5, keyPasses:1.3, aerial:1.6, xg:0.02, goals:0.01, sot:2, turnovers:1.0, appearances:23, minutes:1702, rating:6.53, assists:0, yellowCards:6, redCards:0, duelsWon:4.7}},
 
-  {name:"L. Bergström", club:"PSV Eindhoven", age:24, pos:"CM", value:2.4, gbe:true, s:{passAcc:87, keyPasses:2.1, interceptions:1.6, tackles:2.0, xg:0.09, goals:0.05, sot:6, turnovers:1.1, aerial:1.1}},
-  {name:"H. Osei", club:"Rangers", age:21, pos:"CM", value:0.7, gbe:false, s:{passAcc:79, keyPasses:1.7, interceptions:2.0, tackles:2.4, xg:0.07, goals:0.04, sot:5, turnovers:1.4, aerial:1.0}},
-  {name:"C. Whitfield", club:"Leeds United", age:29, pos:"CM", value:1.1, gbe:true, s:{passAcc:84, keyPasses:1.5, interceptions:2.3, tackles:2.6, xg:0.05, goals:0.03, sot:4, turnovers:0.8, aerial:1.2}},
+  {name:"L. Bergström", club:"PSV Eindhoven", age:24, pos:"CM", value:2.4, gbe:true, s:{passAcc:87, keyPasses:2.1, interceptions:1.6, tackles:2.0, xg:0.09, goals:0.05, sot:6, turnovers:1.1, aerial:1.1, appearances:36, minutes:3168, rating:6.94, assists:2, yellowCards:1, redCards:0, duelsWon:2.8}},
+  {name:"H. Osei", club:"Rangers", age:21, pos:"CM", value:0.7, gbe:false, s:{passAcc:79, keyPasses:1.7, interceptions:2.0, tackles:2.4, xg:0.07, goals:0.04, sot:5, turnovers:1.4, aerial:1.0, appearances:23, minutes:1679, rating:6.58, assists:2, yellowCards:6, redCards:0, duelsWon:5.2}},
+  {name:"C. Whitfield", club:"Leeds United", age:29, pos:"CM", value:1.1, gbe:true, s:{passAcc:84, keyPasses:1.5, interceptions:2.3, tackles:2.6, xg:0.05, goals:0.03, sot:4, turnovers:0.8, aerial:1.2, appearances:30, minutes:2550, rating:7.21, assists:1, yellowCards:8, redCards:0, duelsWon:4.9}},
+
+  {name:"D. Marsh", club:"Sunderland", age:25, pos:"CB", value:2.7, gbe:true, s:{aerial:5.6, passAcc:83, interceptions:2.0, tackles:2.5, xg:0.02, goals:0.0, sot:0, turnovers:0.7, keyPasses:0.1, appearances:27, minutes:2403, rating:7.3, assists:1, yellowCards:5, redCards:0, duelsWon:3.5}},
+  {name:"J. Ferreira", club:"Sunderland", age:23, pos:"ST", value:2.2, gbe:true, s:{xg:0.51, goals:0.26, sot:34, turnovers:1.3, aerial:2.0, passAcc:66, keyPasses:0.7, interceptions:0.2, appearances:38, minutes:3420, rating:6.55, assists:0, yellowCards:0, redCards:0, duelsWon:5.4}},
+  {name:"T. Winslow", club:"Middlesbrough", age:22, pos:"WG", value:1.6, gbe:true, s:{keyPasses:2.2, dribbles:2.9, passAcc:77, xg:0.20, goals:0.13, sot:17, turnovers:1.7, aerial:0.5, interceptions:0.2, appearances:35, minutes:2905, rating:6.75, assists:3, yellowCards:2, redCards:0, duelsWon:4.6}},
+  {name:"A. Duarte", club:"Middlesbrough", age:26, pos:"CM", value:1.3, gbe:false, s:{passAcc:82, keyPasses:1.8, interceptions:2.1, tackles:2.5, xg:0.06, goals:0.03, sot:5, turnovers:1.0, aerial:1.1, appearances:37, minutes:2886, rating:6.68, assists:6, yellowCards:8, redCards:0, duelsWon:3.9}},
+  {name:"R. Fenwick", club:"Norwich City", age:20, pos:"FB", value:0.8, gbe:true, s:{tackles:2.8, passAcc:78, interceptions:1.7, keyPasses:1.0, aerial:1.3, xg:0.02, goals:0.0, sot:1, turnovers:1.1, appearances:28, minutes:2240, rating:6.78, assists:4, yellowCards:7, redCards:0, duelsWon:4.7}},
+  {name:"O. Kristiansen", club:"Norwich City", age:28, pos:"CB", value:1.9, gbe:false, s:{aerial:5.3, passAcc:80, interceptions:1.8, tackles:2.4, xg:0.01, goals:0.0, sot:0, turnovers:0.8, keyPasses:0.1, appearances:33, minutes:2541, rating:6.88, assists:6, yellowCards:3, redCards:0, duelsWon:3.5}},
 ];
 
 const POS_MAP = [
@@ -530,8 +548,10 @@ function runSearch(text){
     pool.sort((a,b)=> (a.s.goals-a.s.xg) - (b.s.goals-b.s.xg));
   } else if(sortKey){
     pool.sort((a,b)=> sortDir * ((a.s[sortKey]||0) - (b.s[sortKey]||0)));
-  } else {
+  } else if(canSee('value')){
     pool.sort((a,b)=> b.value - a.value);
+  } else {
+    pool.sort((a,b)=> a.name.localeCompare(b.name)); // value hidden for this role — don't leak it via ranking either
   }
 
   const totalMatches = pool.length;
@@ -695,7 +715,7 @@ function runLiveSearch(text, players){
    stats here, so it enriches the existing player cards with real recent club form rather than
    replacing them. */
 const OPENFOOTBALL_BASE = "https://raw.githubusercontent.com/openfootball/football.json/master";
-const OPENFOOTBALL_SEASONS = ["2024-25"]; // most recently confirmed-available season for this free dataset
+const OPENFOOTBALL_SEASONS = ["2024-25"]; // TODO: hardcoded — review/update each new domestic season (Aug), or this will silently serve stale/failing form data with no visible warning
 const OPENFOOTBALL_LEAGUES = ["en.1","en.2","en.3","en.4"]; // Prem, Championship, League One, League Two
 let openfootballCache = null;
 let openfootballLoadPromise = null;
@@ -819,6 +839,65 @@ async function enrichWithStandings(results){
   } catch(e){
     return false;
   }
+}
+
+/* ---------------- Real Championship squads (pre-fetched, static, same-origin) ---------------- */
+/* Same pattern as football-data.org: fetch-efl-squads.js pulls real names/ages/positions/photos
+   for every current Championship club using an API-Football key, and commits the output as plain
+   JSON — no key ever ships to the browser. These are REAL player identities. There is deliberately
+   no performance-stat overlay here (no aerial duels, no xG, no market value) — the free tier this
+   was built on doesn't provide that, and inventing numbers next to a real player's real name would
+   misrepresent them as real data. Shown as a clearly separate "Real squad" section, not blended
+   into the illustrative stat-driven results. */
+const EFL_SQUADS_FILE = "data/efl-squads.json";
+let eflSquadsCache = null;
+let eflSquadsLoadPromise = null;
+
+async function loadEflSquads(){
+  if(eflSquadsCache) return eflSquadsCache;
+  if(eflSquadsLoadPromise) return eflSquadsLoadPromise;
+
+  eflSquadsLoadPromise = (async ()=>{
+    const res = await fetch(EFL_SQUADS_FILE);
+    if(!res.ok) throw new Error('efl-squads fetch failed: ' + res.status);
+    const data = await res.json();
+    const flat = [];
+    (data.clubs || []).forEach(c=>{
+      (c.players || []).forEach(p=>{
+        flat.push({ name: p.name, age: p.age, position: p.position, number: p.number, photo: p.photo, club: c.club });
+      });
+    });
+    if(flat.length === 0) throw new Error('efl-squads.json: no players loaded');
+    eflSquadsCache = flat;
+    return eflSquadsCache;
+  })().catch(err=>{
+    eflSquadsLoadPromise = null;
+    throw err;
+  });
+
+  return eflSquadsLoadPromise;
+}
+
+// API-Football's own coarse buckets — broader than the illustrative pool's CB/FB/WG/ST/CM,
+// so a query for "centre-backs" also matches "full-backs" here; that's an honest granularity
+// gap, not a bug, and the UI says so.
+const REAL_POSITION_MAP = { CB:"Defender", FB:"Defender", WG:"Midfielder", CM:"Midfielder", ST:"Attacker" };
+
+async function runRealSquadSearch(text){
+  let squad;
+  try{ squad = await loadEflSquads(); } catch(e){ return null; }
+
+  const parsed = parseQuery(text);
+  let pool = squad;
+  if(parsed.position){
+    const bucket = REAL_POSITION_MAP[parsed.position];
+    if(bucket) pool = pool.filter(p => p.position === bucket);
+  }
+  if(parsed.ageMax) pool = pool.filter(p => p.age && p.age <= parsed.ageMax);
+  // budget/GBE/most performance metrics have no equivalent in this real-identity-only source
+
+  pool = pool.slice().sort((a,b)=> (a.age||99) - (b.age||99));
+  return { total: pool.length, sample: pool.slice(0,3), coarsePosition: !!parsed.position };
 }
 
 const hasNativeStorage = (typeof window !== 'undefined') && !!window.storage;
@@ -965,9 +1044,19 @@ async function runLiveBlend(text){
   const response = runSearch(text);
   let statsbombOk = false;
   try{ await loadLiveData(); statsbombOk = true; } catch(e){ statsbombOk = false; }
-  await enrichWithClubForm(response.results);   // openfootball — best-effort, silent either way
-  await enrichWithStandings(response.results);  // football-data.org — best-effort, silent either way
-  return { response, failed: !statsbombOk };
+  const formOk = await enrichWithClubForm(response.results);       // openfootball
+  const standingsOk = await enrichWithStandings(response.results); // football-data.org
+  response.realSquad = await runRealSquadSearch(text);              // real Championship players
+  const squadOk = !!response.realSquad;
+
+  const sourcesOk = [statsbombOk, formOk, standingsOk, squadOk].filter(Boolean).length;
+  return { response, failed: !statsbombOk, sourcesOk, sourcesTotal: 4 };
+}
+
+function liveSourceLabel(sourcesOk, sourcesTotal){
+  if(sourcesOk === 0) return null; // caller shows a real "couldn't reach anything live" note instead
+  if(sourcesOk === sourcesTotal) return 'Live data';
+  return `Live data — ${sourcesOk} of ${sourcesTotal} sources reachable right now`;
 }
 
 function sendMessage(){
@@ -1010,10 +1099,17 @@ function sendMessage(){
     loadingNote.textContent = 'Connecting to live data…';
     turnEl.appendChild(loadingNote);
     scrollToBottom();
-    runLiveBlend(text).then(({response, failed})=>{
+    runLiveBlend(text).then(({response, sourcesOk, sourcesTotal})=>{
       typing.remove();
       loadingNote.remove();
-      finishTurn(turnEl, threadId, text, response, 'Live data');
+      const label = liveSourceLabel(sourcesOk, sourcesTotal);
+      if(!label && threadId === currentThreadId){
+        const errNote = document.createElement('div');
+        errNote.className = 'fallback-note';
+        errNote.innerHTML = `<span style="color:var(--brick)">●</span> Couldn't reach any live data source right now — showing demo data instead.`;
+        turnEl.appendChild(errNote);
+      }
+      finishTurn(turnEl, threadId, text, response, label);
     });
     return;
   }
@@ -1078,6 +1174,32 @@ function buildAssistantBlock(response, animate, sourceLabel){
     card.onclick = ()=> openProfile(p);
     list.appendChild(card);
   });
+
+  if(response.realSquad && response.realSquad.total > 0){
+    const rs = response.realSquad;
+    const section = document.createElement('div');
+    section.className = 'real-section';
+    section.innerHTML = `<div class="real-section-head"><span class="real-badge">Real</span><span class="rlabel">${rs.total} real Championship squad ${rs.total===1?'match':'matches'}${rs.coarsePosition ? ' — broad position match' : ''}, no performance stats yet</span></div>`;
+    rs.sample.forEach(rp=>{
+      const row = document.createElement('div');
+      row.className = 'real-pcard';
+      row.innerHTML = `
+        <div class="avatar">${rp.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+        <div class="pcard-mid">
+          <div class="pcard-name">${rp.name}</div>
+          <div class="pcard-sub">${rp.position} · ${rp.club}${rp.age?' · Age '+rp.age:''}</div>
+        </div>`;
+      section.appendChild(row);
+    });
+    if(rs.total > rs.sample.length){
+      const more = document.createElement('div');
+      more.className = 'real-more';
+      more.textContent = `+ ${rs.total - rs.sample.length} more in this squad list`;
+      section.appendChild(more);
+    }
+    block.querySelector('.results-list').after(section);
+  }
+
   return block;
 }
 
@@ -1109,8 +1231,12 @@ const screen = document.getElementById('screen');
 const profileScroll = document.getElementById('profile-scroll');
 
 function openProfile(p){
-  const LABELS = {aerial:"Aerial duels won/90",passAcc:"Pass accuracy",interceptions:"Interceptions/90",tackles:"Tackles/90",xg:"xG",goals:"Goals",keyPasses:"Key passes/90",dribbles:"Dribbles/90",turnovers:"Turnovers/90",shots:"Shots",passAtt:"Passes attempted",passCmp:"Passes completed"};
-  const entries = Object.entries(p.s).filter(([k])=>LABELS[k]).slice(0,5);
+  const LABELS = {aerial:"Aerial duels won/90",passAcc:"Pass accuracy",interceptions:"Interceptions/90",tackles:"Tackles/90",xg:"xG",goals:"Goals",keyPasses:"Key passes/90",dribbles:"Dribbles/90",turnovers:"Turnovers/90",shots:"Shots",passAtt:"Passes attempted",passCmp:"Passes completed",appearances:"Appearances (season)",minutes:"Minutes played",rating:"Average rating",assists:"Assists (season)",yellowCards:"Yellow cards",redCards:"Red cards",duelsWon:"Duels won/90"};
+  const FIELD_ORDER = ["appearances","minutes","rating","goals","assists","aerial","duelsWon","passAcc","tackles","interceptions","keyPasses","dribbles","turnovers","xg","shots","passAtt","passCmp","yellowCards","redCards"];
+  const entries = Object.entries(p.s)
+    .filter(([k])=>LABELS[k])
+    .sort((a,b)=> FIELD_ORDER.indexOf(a[0]) - FIELD_ORDER.indexOf(b[0]))
+    .slice(0,9);
   const isLive = p.value === null || p.value === undefined;
   const showValue = canSee('value');
   const showGbe = canSee('gbe');
@@ -1144,12 +1270,12 @@ function openProfile(p){
     ${eligibilityHtml}
     ${formHtml}
     ${standingHtml}
-    <div class="section-label">${isLive ? 'This match' : 'Per-90 profile'}</div>
+    <div class="section-label">${isLive ? 'This match' : 'Season profile'}</div>
     <div id="stat-rows"></div>
   `;
   const rowsWrap = document.getElementById('stat-rows');
   entries.forEach(([key,val])=>{
-    const maxes = {passAcc:100, aerial:7, xg:1, goals:1, tackles:4, interceptions:3, keyPasses:3, dribbles:4, turnovers:2.5, shots:8, passAtt:100, passCmp:90};
+    const maxes = {passAcc:100, aerial:7, xg:1, goals:1, tackles:4, interceptions:3, keyPasses:3, dribbles:4, turnovers:2.5, shots:8, passAtt:100, passCmp:90, appearances:40, minutes:3400, rating:10, assists:10, yellowCards:10, redCards:2, duelsWon:7};
     const pct = Math.min(100, Math.round((val / (maxes[key]||4))*100));
     const row = document.createElement('div');
     row.className = 'stat-row';
@@ -1228,8 +1354,15 @@ function resolveQueuedTurn(q){
   };
 
   if(liveMode){
-    runLiveBlend(q.text).then(({response, failed})=>{
-      finish(response, 'Live data');
+    runLiveBlend(q.text).then(({response, sourcesOk, sourcesTotal})=>{
+      const label = liveSourceLabel(sourcesOk, sourcesTotal);
+      if(!label && q.threadId === currentThreadId){
+        const errNote = document.createElement('div');
+        errNote.className = 'fallback-note';
+        errNote.innerHTML = `<span style="color:var(--brick)">●</span> Couldn't reach any live data source right now — showing demo data instead.`;
+        q.turnEl.appendChild(errNote);
+      }
+      finish(response, label);
     });
   } else {
     finish(runSearch(q.text));
@@ -1243,12 +1376,16 @@ function resolveQueuedTurn(q){
    editing the page's JS. This is a real workflow for UX purposes, not real authentication.
    A production build needs server-side auth (bcrypt/argon2, HTTPS, real session tokens,
    rate limiting on login attempts) per the PRD's Authentication section. */
-const ACCOUNTS_KEY = "recon-accounts-v1";
-const INVITES_KEY = "recon-invites-v1";
+const EMAIL_INDEX_KEY = "recon-email-index-v1"; // { [email]: club } — routing only, no secrets, safe to keep global
 const SESSION_KEY = "recon-session-v1";
-let accounts = {};
-let invites = {};
+let accounts = {};    // holds ONLY currentUser's club's accounts once loaded — never every club's
+let invites = {};     // holds ONLY the club being actively checked (activation) or the admin's own club (team view)
+let emailIndex = {};  // { [email]: club } — lets login route to the right club's store without exposing it
 let currentUser = null;
+
+function accountsKeyFor(club){ return "recon-accounts-v1:" + club; }
+function invitesKeyFor(club){ return "recon-invites-v1:" + club; }
+function permissionsKeyFor(club){ return "recon-permissions-v1:" + club; }
 
 function randomSaltHex(){
   const arr = new Uint8Array(16);
@@ -1265,16 +1402,37 @@ async function hashPassword(password, saltHex){
   const digest = await crypto.subtle.digest('SHA-256', data);
   return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
-async function loadAccounts(){
-  try{ const raw = await kvGet(ACCOUNTS_KEY); accounts = raw ? JSON.parse(raw) : {}; }
+
+async function loadEmailIndex(){
+  try{ const raw = await kvGet(EMAIL_INDEX_KEY); emailIndex = raw ? JSON.parse(raw) : {}; }
+  catch(e){ emailIndex = {}; }
+}
+async function saveEmailIndex(){ return kvSet(EMAIL_INDEX_KEY, JSON.stringify(emailIndex)); }
+
+// Loads ONE club's accounts into memory — never all clubs at once.
+async function loadAccountsForClub(club){
+  try{ const raw = await kvGet(accountsKeyFor(club)); accounts = raw ? JSON.parse(raw) : {}; }
   catch(e){ accounts = {}; }
+  return accounts;
 }
-async function saveAccounts(){ await kvSet(ACCOUNTS_KEY, JSON.stringify(accounts)); }
-async function loadInvites(){
-  try{ const raw = await kvGet(INVITES_KEY); invites = raw ? JSON.parse(raw) : {}; }
-  catch(e){ invites = {}; }
+let lastSaveFailedAccounts = false;
+async function saveAccounts(clubOverride){
+  const club = clubOverride || (currentUser && currentUser.club);
+  const ok = await kvSet(accountsKeyFor(club), JSON.stringify(accounts));
+  lastSaveFailedAccounts = !ok;
+  return ok;
 }
-async function saveInvites(){ await kvSet(INVITES_KEY, JSON.stringify(invites)); }
+
+let lastSaveFailedInvites = false;
+async function loadInvitesForClub(club){
+  try{ const raw = await kvGet(invitesKeyFor(club)); return raw ? JSON.parse(raw) : {}; }
+  catch(e){ return {}; }
+}
+async function saveInvites(){
+  const ok = await kvSet(invitesKeyFor(currentUser.club), JSON.stringify(invites));
+  lastSaveFailedInvites = !ok;
+  return ok;
+}
 
 /* ---------------- Role-based field visibility ---------------- */
 /* IMPORTANT LIMITATION: this only hides fields in the rendered UI. The full player data
@@ -1282,29 +1440,32 @@ async function saveInvites(){ await kvSet(INVITES_KEY, JSON.stringify(invites));
    using browser dev tools can see it regardless of these toggles. Real field-level access
    control has to happen server-side (the backend simply never sends a Recruiter-tier client
    the fields they're not permitted to see), not just in client-side rendering like this. */
-const PERMISSIONS_KEY = "recon-permissions-v1";
-let permissions = {}; // { [club]: { [role]: { value: bool, gbe: bool } } }
+let permissions = {}; // { [role]: { value: bool, gbe: bool } } — ONLY currentUser's club, once loaded
+let lastSaveFailedPermissions = false;
 
-async function loadPermissions(){
-  try{ const raw = await kvGet(PERMISSIONS_KEY); permissions = raw ? JSON.parse(raw) : {}; }
+async function loadPermissionsForClub(club){
+  try{ const raw = await kvGet(permissionsKeyFor(club)); permissions = raw ? JSON.parse(raw) : {}; }
   catch(e){ permissions = {}; }
 }
-async function savePermissions(){ await kvSet(PERMISSIONS_KEY, JSON.stringify(permissions)); }
+async function savePermissions(){
+  const ok = await kvSet(permissionsKeyFor(currentUser.club), JSON.stringify(permissions));
+  lastSaveFailedPermissions = !ok;
+  return ok;
+}
 
 function getFieldVisible(club, role, field){
   if(role === 'Admin') return true;
-  const clubPerms = permissions[club];
-  if(!clubPerms || !clubPerms[role] || clubPerms[role][field] === undefined) return true; // default: visible
-  return clubPerms[role][field] !== false;
+  // permissions is already scoped to currentUser.club by the time this is called
+  if(!permissions[role] || permissions[role][field] === undefined) return true; // default: visible
+  return permissions[role][field] !== false;
 }
 function canSee(field){
   if(!currentUser) return true;
   return getFieldVisible(currentUser.club, currentUser.role, field);
 }
 function setFieldVisible(club, role, field, visible){
-  if(!permissions[club]) permissions[club] = {};
-  if(!permissions[club][role]) permissions[club][role] = {};
-  permissions[club][role][field] = visible;
+  if(!permissions[role]) permissions[role] = {};
+  permissions[role][field] = visible;
 }
 
 /* Demo-only seed: in a real deployment this account would be provisioned by Recon's own
@@ -1312,15 +1473,20 @@ function setFieldVisible(club, role, field, visible){
    there's always a working Admin login to demo the invite flow with. */
 const DEMO_ADMIN_USERNAME = "dan.kelly@birmingham.co.uk";
 const DEMO_ADMIN_PASSWORD = "dan&Ben";
+const DEMO_ADMIN_CLUB = "Birmingham City";
 async function seedDemoAdminIfNeeded(){
-  if(accounts[DEMO_ADMIN_USERNAME]) return;
+  if(emailIndex[DEMO_ADMIN_USERNAME]) return;
+  const clubAccounts = await loadAccountsForClub(DEMO_ADMIN_CLUB);
+  if(clubAccounts[DEMO_ADMIN_USERNAME]) { emailIndex[DEMO_ADMIN_USERNAME] = DEMO_ADMIN_CLUB; await saveEmailIndex(); return; }
   const salt = randomSaltHex();
   const hash = await hashPassword(DEMO_ADMIN_PASSWORD, salt);
   accounts[DEMO_ADMIN_USERNAME] = {
     username: DEMO_ADMIN_USERNAME, displayName: "Dan Kelly",
-    club: "Birmingham City", role: "Admin", salt, hash, createdAt: Date.now()
+    club: DEMO_ADMIN_CLUB, role: "Admin", salt, hash, createdAt: Date.now()
   };
-  await saveAccounts();
+  await saveAccounts(DEMO_ADMIN_CLUB);
+  emailIndex[DEMO_ADMIN_USERNAME] = DEMO_ADMIN_CLUB;
+  await saveEmailIndex();
 }
 
 function ordinal(n){
@@ -1345,12 +1511,21 @@ function applyCurrentUserToUI(){
   document.getElementById('open-team').style.display = (currentUser.role === 'Admin') ? 'flex' : 'none';
 }
 
-function renderTeamView(){
+async function renderTeamView(){
   if(!currentUser || currentUser.role !== 'Admin') return;
   const pendingWrap = document.getElementById('pending-invites-list');
   const teamWrap = document.getElementById('team-members-list');
 
-  const pending = Object.values(invites).filter(i=> !i.used && i.club === currentUser.club);
+  const teamWarn = document.getElementById('team-save-warning');
+  if(teamWarn){
+    const failedSomething = lastSaveFailedAccounts || lastSaveFailedInvites || lastSaveFailedPermissions;
+    teamWarn.style.display = failedSomething ? 'block' : 'none';
+  }
+
+  invites = await loadInvitesForClub(currentUser.club); // this admin's own club only
+  await loadAccountsForClub(currentUser.club);           // refresh in case another tab/session changed it
+
+  const pending = Object.values(invites).filter(i=> !i.used);
   pendingWrap.innerHTML = pending.length ? '' : '<div class="team-empty">No pending invites.</div>';
   pending.forEach(inv=>{
     const row = document.createElement('div');
@@ -1359,7 +1534,7 @@ function renderTeamView(){
     pendingWrap.appendChild(row);
   });
 
-  const members = Object.values(accounts).filter(a=> a.club === currentUser.club);
+  const members = Object.values(accounts);
   teamWrap.innerHTML = '';
   members.forEach(m=>{
     const row = document.createElement('div');
@@ -1367,10 +1542,30 @@ function renderTeamView(){
     const isSelf = m.username === currentUser.username;
     row.innerHTML = `<div class="tm-mid"><div class="tm-name">${m.displayName}</div><div class="tm-sub">${m.username} · ${m.role}</div></div>`;
     if(!isSelf){
+      if(m.role !== 'Admin'){
+        const promoteBtn = document.createElement('button');
+        promoteBtn.className = 'btn-ghost-sm';
+        promoteBtn.textContent = 'Make Admin';
+        promoteBtn.style.marginRight = '6px';
+        promoteBtn.onclick = async ()=>{
+          m.role = 'Admin';
+          accounts[m.username] = m;
+          await saveAccounts();
+          renderTeamView();
+        };
+        row.appendChild(promoteBtn);
+      }
       const btn = document.createElement('button');
       btn.className = 'btn-danger-sm';
       btn.textContent = 'Revoke';
+      btn.dataset.confirming = 'false';
       btn.onclick = async ()=>{
+        if(btn.dataset.confirming !== 'true'){
+          btn.dataset.confirming = 'true';
+          btn.textContent = 'Confirm?';
+          setTimeout(()=>{ if(btn.isConnected){ btn.dataset.confirming='false'; btn.textContent='Revoke'; } }, 3000);
+          return;
+        }
         delete accounts[m.username];
         await saveAccounts();
         renderTeamView();
@@ -1433,6 +1628,7 @@ document.getElementById('invite-submit').onclick = async ()=>{
 
 async function enterApp(){
   document.getElementById('auth-gate').style.display = 'none';
+  await loadPermissionsForClub(currentUser.club);
   applyCurrentUserToUI();
   resetChatToEmpty();
   await loadThreads();
@@ -1441,7 +1637,7 @@ async function enterApp(){
 function showAuthGate(){
   document.getElementById('auth-gate').style.display = 'flex';
   switchAuthPanel('login');
-  ['login-username','login-password','activate-code','activate-password','activate-password2']
+  ['login-username','login-password','activate-club','activate-code','activate-password','activate-password2']
     .forEach(id=>{ const el = document.getElementById(id); if(el) el.value = ''; });
 }
 function switchAuthPanel(which){
@@ -1460,16 +1656,20 @@ document.getElementById('go-forgot').onclick = ()=> switchAuthPanel('forgot');
 document.getElementById('go-login-from-forgot').onclick = ()=> switchAuthPanel('login');
 document.getElementById('go-login-from-reset').onclick = ()=> switchAuthPanel('login');
 
-let resetContext = null; // { username, code } — demo-only, in-memory reset flow
+let resetContext = null; // { username, code, club } — demo-only, in-memory reset flow
 
-document.getElementById('forgot-submit').onclick = ()=>{
+document.getElementById('forgot-submit').onclick = async ()=>{
   const uname = document.getElementById('forgot-username').value.trim().toLowerCase();
   const errEl = document.getElementById('forgot-error');
   errEl.textContent = '';
-  if(!uname){ errEl.textContent = 'Enter your username.'; return; }
-  if(!accounts[uname]){ errEl.textContent = 'No account found with that username.'; return; }
+  const GENERIC = "If that email has an account, you'll be able to reset its password next.";
+  if(!uname){ errEl.textContent = 'Enter your email.'; return; }
+  const club = emailIndex[uname];
+  if(!club){ errEl.textContent = GENERIC; return; }
+  await loadAccountsForClub(club); // only this one club's accounts touch this browser
+  if(!accounts[uname]){ errEl.textContent = GENERIC; return; }
   const code = String(Math.floor(100000 + Math.random()*900000));
-  resetContext = { username: uname, code };
+  resetContext = { username: uname, code, club };
   document.getElementById('reset-demo-code').textContent = code;
   document.getElementById('reset-code').value = '';
   document.getElementById('reset-password').value = '';
@@ -1488,11 +1688,13 @@ document.getElementById('reset-submit').onclick = async ()=>{
   if(pass.length < 8){ errEl.textContent = 'Password must be at least 8 characters.'; return; }
   if(pass !== pass2){ errEl.textContent = "Passwords don't match."; return; }
 
+  await loadAccountsForClub(resetContext.club); // re-load in case navigation cleared it in between
   const acct = accounts[resetContext.username];
+  if(!acct){ errEl.textContent = 'Something went wrong finding your account — request a new code.'; switchAuthPanel('forgot'); return; }
   const salt = randomSaltHex();
   acct.hash = await hashPassword(pass, salt);
   acct.salt = salt;
-  await saveAccounts();
+  await saveAccounts(resetContext.club);
 
   document.getElementById('login-username').value = resetContext.username;
   document.getElementById('login-password').value = '';
@@ -1509,28 +1711,36 @@ document.getElementById('login-submit').onclick = async ()=>{
   const errEl = document.getElementById('login-error');
   errEl.textContent = '';
   errEl.style.color = '';
-  if(!uname || !pass){ errEl.textContent = 'Enter a username and password.'; return; }
+  const GENERIC_ERROR = 'Incorrect email or password.';
+  if(!uname || !pass){ errEl.textContent = GENERIC_ERROR; return; }
+  const club = emailIndex[uname];
+  if(!club){ errEl.textContent = GENERIC_ERROR; return; }
+  await loadAccountsForClub(club); // only this one club's accounts ever touch this browser
   const acct = accounts[uname];
-  if(!acct){ errEl.textContent = 'No account found with that username.'; return; }
+  if(!acct){ errEl.textContent = GENERIC_ERROR; return; }
   const hash = await hashPassword(pass, acct.salt);
-  if(hash !== acct.hash){ errEl.textContent = 'Incorrect password.'; return; }
+  if(hash !== acct.hash){ errEl.textContent = GENERIC_ERROR; return; }
   currentUser = acct;
   await kvSet(SESSION_KEY, acct.username);
   enterApp();
 };
 
 document.getElementById('activate-submit').onclick = async ()=>{
+  const club = document.getElementById('activate-club').value.trim();
   const code = document.getElementById('activate-code').value.trim().toUpperCase();
   const pass = document.getElementById('activate-password').value;
   const pass2 = document.getElementById('activate-password2').value;
   const errEl = document.getElementById('activate-error');
   errEl.textContent = '';
 
-  if(!code || !pass){ errEl.textContent = 'Enter your invite code and a password.'; return; }
-  const invite = invites[code];
-  if(!invite || invite.used){ errEl.textContent = 'That invite code is invalid or already used.'; return; }
+  if(!club || !code || !pass){ errEl.textContent = 'Enter your club, invite code, and a password.'; return; }
+  const clubInvites = await loadInvitesForClub(club); // only this one club's invites ever touch this browser
+  const invite = clubInvites[code];
+  if(!invite || invite.used){ errEl.textContent = 'That invite code is invalid, already used, or the club name doesn\'t match.'; return; }
   if(pass.length < 8){ errEl.textContent = 'Password must be at least 8 characters.'; return; }
   if(pass !== pass2){ errEl.textContent = "Passwords don't match."; return; }
+
+  await loadAccountsForClub(club);
   if(accounts[invite.email]){ errEl.textContent = 'An account already exists for this invite.'; return; }
 
   const salt = randomSaltHex();
@@ -1538,32 +1748,42 @@ document.getElementById('activate-submit').onclick = async ()=>{
   const acct = { username: invite.email, displayName: invite.displayName, club: invite.club, role: invite.role, salt, hash, createdAt: Date.now() };
   accounts[invite.email] = acct;
   invite.used = true;
+  clubInvites[code] = invite;
+  invites = clubInvites;
+  currentUser = acct; // needed before save so saveAccounts()/saveInvites() know which club store to write
   await saveAccounts();
   await saveInvites();
-  currentUser = acct;
+  emailIndex[invite.email] = club;
+  await saveEmailIndex();
   await kvSet(SESSION_KEY, invite.email);
   enterApp();
 };
 
 document.getElementById('sign-out-row').onclick = async ()=>{
   await kvSet(SESSION_KEY, '');
+  pendingQueue = []; // any query queued while offline belonged to this user's session — don't let it land in the next user's history
+  accounts = {};
+  invites = {};
+  permissions = {};
   currentUser = null;
   closeSecondary();
   showAuthGate();
 };
 
 async function bootAuth(){
-  await loadAccounts();
+  await loadEmailIndex();
   await seedDemoAdminIfNeeded();
-  await loadInvites();
-  await loadPermissions();
   const sessionUser = await kvGet(SESSION_KEY);
-  if(sessionUser && accounts[sessionUser]){
-    currentUser = accounts[sessionUser];
-    await enterApp();
-  } else {
-    showAuthGate();
+  if(sessionUser && emailIndex[sessionUser]){
+    const club = emailIndex[sessionUser];
+    await loadAccountsForClub(club);
+    if(accounts[sessionUser]){
+      currentUser = accounts[sessionUser];
+      await enterApp();
+      return;
+    }
   }
+  showAuthGate();
 }
 
 document.getElementById('back-btn').onclick = closeSecondary;
