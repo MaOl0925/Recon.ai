@@ -22,9 +22,6 @@ const API_KEY = process.env.API_FOOTBALL_KEY || "PASTE_YOUR_KEY_HERE";
 const BASE = "https://v3.football.api-sports.io";
 const BATCH_SIZE = 5;
 
-// Edit this list to whichever real clubs you want players pulled from.
-const CLUBS = ["Preston North End", "Leeds United"];
-
 const fs = require("fs");
 const path = require("path");
 const outFile = path.join(__dirname, "data", "player-stats.json");

@@ -1,7 +1,7 @@
 {
   "competition": "eredivisie",
   "code": "DED",
-  "fetchedAt": "2026-07-29T20:47:37.975Z",
+  "fetchedAt": "2026-08-19T18:20:33.575Z",
   "standings": {
     "filters": {
       "season": "2026"
@@ -23,338 +23,15 @@
       "id": 2493,
       "startDate": "2026-08-07",
       "endDate": "2027-05-23",
-      "currentMatchday": 1,
+      "currentMatchday": 3,
       "winner": null
     },
     "standings": [
       {
         "stage": "REGULAR_SEASON",
         "type": "TOTAL",
-        "group": null,
+        "group": "Matchday",
         "table": [
-          {
-            "position": 1,
-            "team": {
-              "id": 1912,
-              "name": "Telstar 1963",
-              "shortName": "Telstar",
-              "tla": "TEL",
-              "crest": "https://crests.football-data.org/1912.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
-          {
-            "position": 1,
-            "team": {
-              "id": 670,
-              "name": "SBV Excelsior",
-              "shortName": "Excelsior",
-              "tla": "EXC",
-              "crest": "https://crests.football-data.org/670.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
-          {
-            "position": 1,
-            "team": {
-              "id": 675,
-              "name": "Feyenoord Rotterdam",
-              "shortName": "Feyenoord",
-              "tla": "FEY",
-              "crest": "https://crests.football-data.org/675.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
-          {
-            "position": 1,
-            "team": {
-              "id": 677,
-              "name": "FC Groningen",
-              "shortName": "Groningen",
-              "tla": "GRO",
-              "crest": "https://crests.football-data.org/677.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
-          {
-            "position": 1,
-            "team": {
-              "id": 684,
-              "name": "PEC Zwolle",
-              "shortName": "Zwolle",
-              "tla": "ZWO",
-              "crest": "https://crests.football-data.org/684.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
-          {
-            "position": 1,
-            "team": {
-              "id": 666,
-              "name": "FC Twente '65",
-              "shortName": "Twente",
-              "tla": "TWE",
-              "crest": "https://crests.football-data.org/666.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
-          {
-            "position": 1,
-            "team": {
-              "id": 1909,
-              "name": "SC Cambuur-Leeuwarden",
-              "shortName": "Cambuur",
-              "tla": "CAM",
-              "crest": "https://crests.football-data.org/1909.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
-          {
-            "position": 1,
-            "team": {
-              "id": 678,
-              "name": "AFC Ajax",
-              "shortName": "Ajax",
-              "tla": "AJA",
-              "crest": "https://crests.football-data.org/678.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
-          {
-            "position": 1,
-            "team": {
-              "id": 1915,
-              "name": "NEC",
-              "shortName": "NEC",
-              "tla": "NEC",
-              "crest": "https://crests.football-data.org/1915.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
-          {
-            "position": 1,
-            "team": {
-              "id": 676,
-              "name": "FC Utrecht",
-              "shortName": "Utrecht",
-              "tla": "UTR",
-              "crest": "https://crests.football-data.org/676.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
-          {
-            "position": 1,
-            "team": {
-              "id": 6806,
-              "name": "Sparta Rotterdam",
-              "shortName": "Sparta",
-              "tla": "SPA",
-              "crest": "https://crests.football-data.org/6806.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
-          {
-            "position": 1,
-            "team": {
-              "id": 1920,
-              "name": "Fortuna Sittard",
-              "shortName": "Sittard",
-              "tla": "SIT",
-              "crest": "https://crests.football-data.org/1920.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
-          {
-            "position": 1,
-            "team": {
-              "id": 673,
-              "name": "SC Heerenveen",
-              "shortName": "Heerenveen",
-              "tla": "HEE",
-              "crest": "https://crests.football-data.org/673.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
-          {
-            "position": 1,
-            "team": {
-              "id": 674,
-              "name": "PSV",
-              "shortName": "PSV",
-              "tla": "PSV",
-              "crest": "https://crests.football-data.org/674.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
-          {
-            "position": 1,
-            "team": {
-              "id": 672,
-              "name": "Willem II Tilburg",
-              "shortName": "Willem II",
-              "tla": "WII",
-              "crest": "https://crests.football-data.org/672.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
-          {
-            "position": 1,
-            "team": {
-              "id": 718,
-              "name": "Go Ahead Eagles",
-              "shortName": "Go Ahead",
-              "tla": "GOA",
-              "crest": "https://crests.football-data.org/718.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
-          {
-            "position": 1,
-            "team": {
-              "id": 680,
-              "name": "ADO Den Haag",
-              "shortName": "Den Haag",
-              "tla": "ADO",
-              "crest": "https://crests.football-data.org/680.png"
-            },
-            "playedGames": 0,
-            "form": null,
-            "won": 0,
-            "draw": 0,
-            "lost": 0,
-            "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
-          },
           {
             "position": 1,
             "team": {
@@ -364,15 +41,338 @@
               "tla": "AZ",
               "crest": "https://crests.football-data.org/682.png"
             },
-            "playedGames": 0,
+            "playedGames": 2,
+            "form": null,
+            "won": 2,
+            "draw": 0,
+            "lost": 0,
+            "points": 6,
+            "goalsFor": 6,
+            "goalsAgainst": 1,
+            "goalDifference": 5
+          },
+          {
+            "position": 2,
+            "team": {
+              "id": 677,
+              "name": "FC Groningen",
+              "shortName": "Groningen",
+              "tla": "GRO",
+              "crest": "https://crests.football-data.org/677.png"
+            },
+            "playedGames": 2,
+            "form": null,
+            "won": 2,
+            "draw": 0,
+            "lost": 0,
+            "points": 6,
+            "goalsFor": 6,
+            "goalsAgainst": 2,
+            "goalDifference": 4
+          },
+          {
+            "position": 3,
+            "team": {
+              "id": 718,
+              "name": "Go Ahead Eagles",
+              "shortName": "Go Ahead",
+              "tla": "GOA",
+              "crest": "https://crests.football-data.org/718.png"
+            },
+            "playedGames": 2,
+            "form": null,
+            "won": 1,
+            "draw": 1,
+            "lost": 0,
+            "points": 4,
+            "goalsFor": 6,
+            "goalsAgainst": 3,
+            "goalDifference": 3
+          },
+          {
+            "position": 4,
+            "team": {
+              "id": 1920,
+              "name": "Fortuna Sittard",
+              "shortName": "Sittard",
+              "tla": "SIT",
+              "crest": "https://crests.football-data.org/1920.png"
+            },
+            "playedGames": 2,
+            "form": null,
+            "won": 1,
+            "draw": 1,
+            "lost": 0,
+            "points": 4,
+            "goalsFor": 5,
+            "goalsAgainst": 3,
+            "goalDifference": 2
+          },
+          {
+            "position": 5,
+            "team": {
+              "id": 678,
+              "name": "AFC Ajax",
+              "shortName": "Ajax",
+              "tla": "AJA",
+              "crest": "https://crests.football-data.org/678.png"
+            },
+            "playedGames": 2,
+            "form": null,
+            "won": 1,
+            "draw": 1,
+            "lost": 0,
+            "points": 4,
+            "goalsFor": 4,
+            "goalsAgainst": 2,
+            "goalDifference": 2
+          },
+          {
+            "position": 6,
+            "team": {
+              "id": 674,
+              "name": "PSV",
+              "shortName": "PSV",
+              "tla": "PSV",
+              "crest": "https://crests.football-data.org/674.png"
+            },
+            "playedGames": 2,
+            "form": null,
+            "won": 1,
+            "draw": 1,
+            "lost": 0,
+            "points": 4,
+            "goalsFor": 4,
+            "goalsAgainst": 3,
+            "goalDifference": 1
+          },
+          {
+            "position": 7,
+            "team": {
+              "id": 675,
+              "name": "Feyenoord Rotterdam",
+              "shortName": "Feyenoord",
+              "tla": "FEY",
+              "crest": "https://crests.football-data.org/675.png"
+            },
+            "playedGames": 2,
+            "form": null,
+            "won": 1,
+            "draw": 1,
+            "lost": 0,
+            "points": 4,
+            "goalsFor": 3,
+            "goalsAgainst": 2,
+            "goalDifference": 1
+          },
+          {
+            "position": 7,
+            "team": {
+              "id": 673,
+              "name": "SC Heerenveen",
+              "shortName": "Heerenveen",
+              "tla": "HEE",
+              "crest": "https://crests.football-data.org/673.png"
+            },
+            "playedGames": 2,
+            "form": null,
+            "won": 1,
+            "draw": 1,
+            "lost": 0,
+            "points": 4,
+            "goalsFor": 3,
+            "goalsAgainst": 2,
+            "goalDifference": 1
+          },
+          {
+            "position": 9,
+            "team": {
+              "id": 670,
+              "name": "SBV Excelsior",
+              "shortName": "Excelsior",
+              "tla": "EXC",
+              "crest": "https://crests.football-data.org/670.png"
+            },
+            "playedGames": 2,
+            "form": null,
+            "won": 1,
+            "draw": 0,
+            "lost": 1,
+            "points": 3,
+            "goalsFor": 5,
+            "goalsAgainst": 2,
+            "goalDifference": 3
+          },
+          {
+            "position": 10,
+            "team": {
+              "id": 1915,
+              "name": "NEC",
+              "shortName": "NEC",
+              "tla": "NEC",
+              "crest": "https://crests.football-data.org/1915.png"
+            },
+            "playedGames": 2,
+            "form": null,
+            "won": 1,
+            "draw": 0,
+            "lost": 1,
+            "points": 3,
+            "goalsFor": 5,
+            "goalsAgainst": 3,
+            "goalDifference": 2
+          },
+          {
+            "position": 11,
+            "team": {
+              "id": 666,
+              "name": "FC Twente '65",
+              "shortName": "Twente",
+              "tla": "TWE",
+              "crest": "https://crests.football-data.org/666.png"
+            },
+            "playedGames": 2,
+            "form": null,
+            "won": 1,
+            "draw": 0,
+            "lost": 1,
+            "points": 3,
+            "goalsFor": 3,
+            "goalsAgainst": 2,
+            "goalDifference": 1
+          },
+          {
+            "position": 11,
+            "team": {
+              "id": 6806,
+              "name": "Sparta Rotterdam",
+              "shortName": "Sparta",
+              "tla": "SPA",
+              "crest": "https://crests.football-data.org/6806.png"
+            },
+            "playedGames": 2,
+            "form": null,
+            "won": 1,
+            "draw": 0,
+            "lost": 1,
+            "points": 3,
+            "goalsFor": 3,
+            "goalsAgainst": 2,
+            "goalDifference": 1
+          },
+          {
+            "position": 13,
+            "team": {
+              "id": 1912,
+              "name": "Telstar 1963",
+              "shortName": "Telstar",
+              "tla": "TEL",
+              "crest": "https://crests.football-data.org/1912.png"
+            },
+            "playedGames": 2,
+            "form": null,
+            "won": 1,
+            "draw": 0,
+            "lost": 1,
+            "points": 3,
+            "goalsFor": 3,
+            "goalsAgainst": 4,
+            "goalDifference": -1
+          },
+          {
+            "position": 14,
+            "team": {
+              "id": 676,
+              "name": "FC Utrecht",
+              "shortName": "Utrecht",
+              "tla": "UTR",
+              "crest": "https://crests.football-data.org/676.png"
+            },
+            "playedGames": 2,
             "form": null,
             "won": 0,
             "draw": 0,
-            "lost": 0,
+            "lost": 2,
             "points": 0,
-            "goalsFor": 0,
-            "goalsAgainst": 0,
-            "goalDifference": 0
+            "goalsFor": 2,
+            "goalsAgainst": 6,
+            "goalDifference": -4
+          },
+          {
+            "position": 15,
+            "team": {
+              "id": 684,
+              "name": "PEC Zwolle",
+              "shortName": "Zwolle",
+              "tla": "ZWO",
+              "crest": "https://crests.football-data.org/684.png"
+            },
+            "playedGames": 2,
+            "form": null,
+            "won": 0,
+            "draw": 0,
+            "lost": 2,
+            "points": 0,
+            "goalsFor": 1,
+            "goalsAgainst": 5,
+            "goalDifference": -4
+          },
+          {
+            "position": 16,
+            "team": {
+              "id": 680,
+              "name": "ADO Den Haag",
+              "shortName": "Den Haag",
+              "tla": "ADO",
+              "crest": "https://crests.football-data.org/680.png"
+            },
+            "playedGames": 2,
+            "form": null,
+            "won": 0,
+            "draw": 0,
+            "lost": 2,
+            "points": 0,
+            "goalsFor": 1,
+            "goalsAgainst": 6,
+            "goalDifference": -5
+          },
+          {
+            "position": 17,
+            "team": {
+              "id": 672,
+              "name": "Willem II Tilburg",
+              "shortName": "Willem II",
+              "tla": "WII",
+              "crest": "https://crests.football-data.org/672.png"
+            },
+            "playedGames": 2,
+            "form": null,
+            "won": 0,
+            "draw": 0,
+            "lost": 2,
+            "points": 0,
+            "goalsFor": 2,
+            "goalsAgainst": 8,
+            "goalDifference": -6
+          },
+          {
+            "position": 18,
+            "team": {
+              "id": 1909,
+              "name": "SC Cambuur-Leeuwarden",
+              "shortName": "Cambuur",
+              "tla": "CAM",
+              "crest": "https://crests.football-data.org/1909.png"
+            },
+            "playedGames": 2,
+            "form": null,
+            "won": 0,
+            "draw": 0,
+            "lost": 2,
+            "points": 0,
+            "goalsFor": 1,
+            "goalsAgainst": 7,
+            "goalDifference": -6
           }
         ]
       }
@@ -386,7 +386,10 @@
       ]
     },
     "resultSet": {
-      "count": 0
+      "count": 18,
+      "first": "2026-08-07",
+      "last": "2026-08-16",
+      "played": 18
     },
     "competition": {
       "id": 2003,
@@ -395,10 +398,1199 @@
       "type": "LEAGUE",
       "emblem": "https://crests.football-data.org/ED.png"
     },
-    "matches": []
+    "matches": [
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558214,
+        "utcDate": "2026-08-07T18:00:00Z",
+        "status": "FINISHED",
+        "matchday": 1,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 1909,
+          "name": "SC Cambuur-Leeuwarden",
+          "shortName": "Cambuur",
+          "tla": "CAM",
+          "crest": "https://crests.football-data.org/1909.png"
+        },
+        "awayTeam": {
+          "id": 670,
+          "name": "SBV Excelsior",
+          "shortName": "Excelsior",
+          "tla": "EXC",
+          "crest": "https://crests.football-data.org/670.png"
+        },
+        "score": {
+          "winner": "AWAY_TEAM",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 0,
+            "away": 4
+          },
+          "halfTime": {
+            "home": 0,
+            "away": 3
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 9561,
+            "name": "Allard Lindhout",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558215,
+        "utcDate": "2026-08-08T14:30:00Z",
+        "status": "FINISHED",
+        "matchday": 1,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 1915,
+          "name": "NEC",
+          "shortName": "NEC",
+          "tla": "NEC",
+          "crest": "https://crests.football-data.org/1915.png"
+        },
+        "awayTeam": {
+          "id": 1912,
+          "name": "Telstar 1963",
+          "shortName": "Telstar",
+          "tla": "TEL",
+          "crest": "https://crests.football-data.org/1912.png"
+        },
+        "score": {
+          "winner": "AWAY_TEAM",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 1,
+            "away": 2
+          },
+          "halfTime": {
+            "home": 0,
+            "away": 2
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 81044,
+            "name": "Martijn Vos",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558216,
+        "utcDate": "2026-08-08T16:45:00Z",
+        "status": "FINISHED",
+        "matchday": 1,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 718,
+          "name": "Go Ahead Eagles",
+          "shortName": "Go Ahead",
+          "tla": "GOA",
+          "crest": "https://crests.football-data.org/718.png"
+        },
+        "awayTeam": {
+          "id": 672,
+          "name": "Willem II Tilburg",
+          "shortName": "Willem II",
+          "tla": "WII",
+          "crest": "https://crests.football-data.org/672.png"
+        },
+        "score": {
+          "winner": "HOME_TEAM",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 4,
+            "away": 1
+          },
+          "halfTime": {
+            "home": 1,
+            "away": 1
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 81036,
+            "name": "Robin Hensgens",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558217,
+        "utcDate": "2026-08-08T18:00:00Z",
+        "status": "FINISHED",
+        "matchday": 1,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 674,
+          "name": "PSV",
+          "shortName": "PSV",
+          "tla": "PSV",
+          "crest": "https://crests.football-data.org/674.png"
+        },
+        "awayTeam": {
+          "id": 1920,
+          "name": "Fortuna Sittard",
+          "shortName": "Sittard",
+          "tla": "SIT",
+          "crest": "https://crests.football-data.org/1920.png"
+        },
+        "score": {
+          "winner": "DRAW",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 2,
+            "away": 2
+          },
+          "halfTime": {
+            "home": 0,
+            "away": 1
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 81350,
+            "name": "Alex Bos",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558218,
+        "utcDate": "2026-08-08T19:00:00Z",
+        "status": "FINISHED",
+        "matchday": 1,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 682,
+          "name": "AZ",
+          "shortName": "AZ",
+          "tla": "AZ",
+          "crest": "https://crests.football-data.org/682.png"
+        },
+        "awayTeam": {
+          "id": 680,
+          "name": "ADO Den Haag",
+          "shortName": "Den Haag",
+          "tla": "ADO",
+          "crest": "https://crests.football-data.org/680.png"
+        },
+        "score": {
+          "winner": "HOME_TEAM",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 2,
+            "away": 0
+          },
+          "halfTime": {
+            "home": 0,
+            "away": 0
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 56917,
+            "name": "Erwin Blank",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558219,
+        "utcDate": "2026-08-09T10:15:00Z",
+        "status": "FINISHED",
+        "matchday": 1,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 6806,
+          "name": "Sparta Rotterdam",
+          "shortName": "Sparta",
+          "tla": "SPA",
+          "crest": "https://crests.football-data.org/6806.png"
+        },
+        "awayTeam": {
+          "id": 675,
+          "name": "Feyenoord Rotterdam",
+          "shortName": "Feyenoord",
+          "tla": "FEY",
+          "crest": "https://crests.football-data.org/675.png"
+        },
+        "score": {
+          "winner": "AWAY_TEAM",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 0,
+            "away": 1
+          },
+          "halfTime": {
+            "home": 0,
+            "away": 1
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 56923,
+            "name": "Sander Van der Eijk",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558220,
+        "utcDate": "2026-08-09T12:30:00Z",
+        "status": "FINISHED",
+        "matchday": 1,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 677,
+          "name": "FC Groningen",
+          "shortName": "Groningen",
+          "tla": "GRO",
+          "crest": "https://crests.football-data.org/677.png"
+        },
+        "awayTeam": {
+          "id": 676,
+          "name": "FC Utrecht",
+          "shortName": "Utrecht",
+          "tla": "UTR",
+          "crest": "https://crests.football-data.org/676.png"
+        },
+        "score": {
+          "winner": "HOME_TEAM",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 2,
+            "away": 1
+          },
+          "halfTime": {
+            "home": 1,
+            "away": 0
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 17136,
+            "name": "Joey Kooij",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558221,
+        "utcDate": "2026-08-09T12:30:00Z",
+        "status": "FINISHED",
+        "matchday": 1,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 684,
+          "name": "PEC Zwolle",
+          "shortName": "Zwolle",
+          "tla": "ZWO",
+          "crest": "https://crests.football-data.org/684.png"
+        },
+        "awayTeam": {
+          "id": 678,
+          "name": "AFC Ajax",
+          "shortName": "Ajax",
+          "tla": "AJA",
+          "crest": "https://crests.football-data.org/678.png"
+        },
+        "score": {
+          "winner": "AWAY_TEAM",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 0,
+            "away": 2
+          },
+          "halfTime": {
+            "home": 0,
+            "away": 0
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 80087,
+            "name": "Jannick van der Laan",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558222,
+        "utcDate": "2026-08-09T14:45:00Z",
+        "status": "FINISHED",
+        "matchday": 1,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 673,
+          "name": "SC Heerenveen",
+          "shortName": "Heerenveen",
+          "tla": "HEE",
+          "crest": "https://crests.football-data.org/673.png"
+        },
+        "awayTeam": {
+          "id": 666,
+          "name": "FC Twente '65",
+          "shortName": "Twente",
+          "tla": "TWE",
+          "crest": "https://crests.football-data.org/666.png"
+        },
+        "score": {
+          "winner": "HOME_TEAM",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 1,
+            "away": 0
+          },
+          "halfTime": {
+            "home": 0,
+            "away": 0
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 80090,
+            "name": "Marc Nagtegaal",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558223,
+        "utcDate": "2026-08-14T18:00:00Z",
+        "status": "FINISHED",
+        "matchday": 2,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 1912,
+          "name": "Telstar 1963",
+          "shortName": "Telstar",
+          "tla": "TEL",
+          "crest": "https://crests.football-data.org/1912.png"
+        },
+        "awayTeam": {
+          "id": 6806,
+          "name": "Sparta Rotterdam",
+          "shortName": "Sparta",
+          "tla": "SPA",
+          "crest": "https://crests.football-data.org/6806.png"
+        },
+        "score": {
+          "winner": "AWAY_TEAM",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 1,
+            "away": 3
+          },
+          "halfTime": {
+            "home": 0,
+            "away": 1
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 17127,
+            "name": "Ingmar Oostrom",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558224,
+        "utcDate": "2026-08-15T14:30:00Z",
+        "status": "FINISHED",
+        "matchday": 2,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 672,
+          "name": "Willem II Tilburg",
+          "shortName": "Willem II",
+          "tla": "WII",
+          "crest": "https://crests.football-data.org/672.png"
+        },
+        "awayTeam": {
+          "id": 1915,
+          "name": "NEC",
+          "shortName": "NEC",
+          "tla": "NEC",
+          "crest": "https://crests.football-data.org/1915.png"
+        },
+        "score": {
+          "winner": "AWAY_TEAM",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 1,
+            "away": 4
+          },
+          "halfTime": {
+            "home": 0,
+            "away": 1
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 43858,
+            "name": "Serdar Gözübüyük",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558225,
+        "utcDate": "2026-08-15T16:45:00Z",
+        "status": "FINISHED",
+        "matchday": 2,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 676,
+          "name": "FC Utrecht",
+          "shortName": "Utrecht",
+          "tla": "UTR",
+          "crest": "https://crests.football-data.org/676.png"
+        },
+        "awayTeam": {
+          "id": 682,
+          "name": "AZ",
+          "shortName": "AZ",
+          "tla": "AZ",
+          "crest": "https://crests.football-data.org/682.png"
+        },
+        "score": {
+          "winner": "AWAY_TEAM",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 1,
+            "away": 4
+          },
+          "halfTime": {
+            "home": 0,
+            "away": 1
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 43899,
+            "name": "Danny Makkelie",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558226,
+        "utcDate": "2026-08-15T18:00:00Z",
+        "status": "FINISHED",
+        "matchday": 2,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 670,
+          "name": "SBV Excelsior",
+          "shortName": "Excelsior",
+          "tla": "EXC",
+          "crest": "https://crests.football-data.org/670.png"
+        },
+        "awayTeam": {
+          "id": 674,
+          "name": "PSV",
+          "shortName": "PSV",
+          "tla": "PSV",
+          "crest": "https://crests.football-data.org/674.png"
+        },
+        "score": {
+          "winner": "AWAY_TEAM",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 1,
+            "away": 2
+          },
+          "halfTime": {
+            "home": 0,
+            "away": 1
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 80090,
+            "name": "Marc Nagtegaal",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558227,
+        "utcDate": "2026-08-15T19:00:00Z",
+        "status": "FINISHED",
+        "matchday": 2,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 1920,
+          "name": "Fortuna Sittard",
+          "shortName": "Sittard",
+          "tla": "SIT",
+          "crest": "https://crests.football-data.org/1920.png"
+        },
+        "awayTeam": {
+          "id": 1909,
+          "name": "SC Cambuur-Leeuwarden",
+          "shortName": "Cambuur",
+          "tla": "CAM",
+          "crest": "https://crests.football-data.org/1909.png"
+        },
+        "score": {
+          "winner": "HOME_TEAM",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 3,
+            "away": 1
+          },
+          "halfTime": {
+            "home": 2,
+            "away": 1
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 56910,
+            "name": "Martin van den Kerkhof",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558228,
+        "utcDate": "2026-08-16T10:15:00Z",
+        "status": "FINISHED",
+        "matchday": 2,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 680,
+          "name": "ADO Den Haag",
+          "shortName": "Den Haag",
+          "tla": "ADO",
+          "crest": "https://crests.football-data.org/680.png"
+        },
+        "awayTeam": {
+          "id": 677,
+          "name": "FC Groningen",
+          "shortName": "Groningen",
+          "tla": "GRO",
+          "crest": "https://crests.football-data.org/677.png"
+        },
+        "score": {
+          "winner": "AWAY_TEAM",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 1,
+            "away": 4
+          },
+          "halfTime": {
+            "home": 0,
+            "away": 3
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 56912,
+            "name": "Jeroen Manschot",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558229,
+        "utcDate": "2026-08-16T12:30:00Z",
+        "status": "FINISHED",
+        "matchday": 2,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 675,
+          "name": "Feyenoord Rotterdam",
+          "shortName": "Feyenoord",
+          "tla": "FEY",
+          "crest": "https://crests.football-data.org/675.png"
+        },
+        "awayTeam": {
+          "id": 718,
+          "name": "Go Ahead Eagles",
+          "shortName": "Go Ahead",
+          "tla": "GOA",
+          "crest": "https://crests.football-data.org/718.png"
+        },
+        "score": {
+          "winner": "DRAW",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 2,
+            "away": 2
+          },
+          "halfTime": {
+            "home": 2,
+            "away": 0
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 17136,
+            "name": "Joey Kooij",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558230,
+        "utcDate": "2026-08-16T12:30:00Z",
+        "status": "FINISHED",
+        "matchday": 2,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 666,
+          "name": "FC Twente '65",
+          "shortName": "Twente",
+          "tla": "TWE",
+          "crest": "https://crests.football-data.org/666.png"
+        },
+        "awayTeam": {
+          "id": 684,
+          "name": "PEC Zwolle",
+          "shortName": "Zwolle",
+          "tla": "ZWO",
+          "crest": "https://crests.football-data.org/684.png"
+        },
+        "score": {
+          "winner": "HOME_TEAM",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 3,
+            "away": 1
+          },
+          "halfTime": {
+            "home": 1,
+            "away": 1
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 9561,
+            "name": "Allard Lindhout",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      },
+      {
+        "area": {
+          "id": 2163,
+          "name": "Netherlands",
+          "code": "NLD",
+          "flag": "https://crests.football-data.org/8601.svg"
+        },
+        "competition": {
+          "id": 2003,
+          "name": "Eredivisie",
+          "code": "DED",
+          "type": "LEAGUE",
+          "emblem": "https://crests.football-data.org/ED.png"
+        },
+        "season": {
+          "id": 2493,
+          "startDate": "2026-08-07",
+          "endDate": "2027-05-23",
+          "currentMatchday": 3,
+          "winner": null
+        },
+        "id": 558231,
+        "utcDate": "2026-08-16T14:45:00Z",
+        "status": "FINISHED",
+        "matchday": 2,
+        "stage": "REGULAR_SEASON",
+        "group": null,
+        "lastUpdated": "2026-08-19T05:20:29Z",
+        "homeTeam": {
+          "id": 678,
+          "name": "AFC Ajax",
+          "shortName": "Ajax",
+          "tla": "AJA",
+          "crest": "https://crests.football-data.org/678.png"
+        },
+        "awayTeam": {
+          "id": 673,
+          "name": "SC Heerenveen",
+          "shortName": "Heerenveen",
+          "tla": "HEE",
+          "crest": "https://crests.football-data.org/673.png"
+        },
+        "score": {
+          "winner": "DRAW",
+          "duration": "REGULAR",
+          "fullTime": {
+            "home": 2,
+            "away": 2
+          },
+          "halfTime": {
+            "home": 2,
+            "away": 1
+          }
+        },
+        "odds": {
+          "msg": "Activate Odds-Package in User-Panel to retrieve odds."
+        },
+        "referees": [
+          {
+            "id": 81350,
+            "name": "Alex Bos",
+            "type": "REFEREE",
+            "nationality": "Netherlands"
+          }
+        ]
+      }
+    ]
   },
   "scorers": {
-    "count": 0,
+    "count": 20,
     "filters": {
       "season": "2026",
       "limit": 20
@@ -414,9 +1606,630 @@
       "id": 2493,
       "startDate": "2026-08-07",
       "endDate": "2027-05-23",
-      "currentMatchday": 1,
+      "currentMatchday": 3,
       "winner": null
     },
-    "scorers": []
+    "scorers": [
+      {
+        "player": {
+          "id": 179498,
+          "name": "Noah Naujoks",
+          "firstName": "Noah",
+          "lastName": "Naujoks",
+          "dateOfBirth": "2002-05-02",
+          "nationality": "Netherlands",
+          "section": "Midfield",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2023-07-30T23:06:53Z"
+        },
+        "team": {
+          "id": 670,
+          "name": "SBV Excelsior",
+          "shortName": "Excelsior",
+          "tla": "EXC",
+          "crest": "https://crests.football-data.org/670.png",
+          "address": "Honingerdijk 110 Rotterdam 3062 NX",
+          "website": "http://www.sbvexcelsior.nl",
+          "founded": 1902,
+          "clubColors": "Red / Black",
+          "venue": "Van Donge & De Roo Stadion",
+          "lastUpdated": "2022-08-07T11:18:32Z"
+        },
+        "playedMatches": 0,
+        "goals": 2,
+        "assists": null,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 7574,
+          "name": "Kaj Sierhuis",
+          "firstName": "Kaj",
+          "lastName": "Sierhuis",
+          "dateOfBirth": "1998-04-27",
+          "nationality": "Netherlands",
+          "section": "Offence",
+          "position": null,
+          "shirtNumber": 9,
+          "lastUpdated": "2026-07-22T15:39:08Z"
+        },
+        "team": {
+          "id": 1915,
+          "name": "NEC",
+          "shortName": "NEC",
+          "tla": "NEC",
+          "crest": "https://crests.football-data.org/1915.png",
+          "address": "Stadionplein 1 Nijmegen 6532 AJ",
+          "website": "http://www.nec-nijmegen.nl",
+          "founded": 1900,
+          "clubColors": "Red / Green / Black",
+          "venue": "Goffertstadion",
+          "lastUpdated": "2022-03-06T09:55:52Z"
+        },
+        "playedMatches": 2,
+        "goals": 2,
+        "assists": null,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 121280,
+          "name": "Søren Tengstedt",
+          "firstName": "Søren",
+          "lastName": "Tengstedt",
+          "dateOfBirth": "2000-06-30",
+          "nationality": "Denmark",
+          "section": "Offence",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2026-07-22T15:39:08Z"
+        },
+        "team": {
+          "id": 718,
+          "name": "Go Ahead Eagles",
+          "shortName": "Go Ahead",
+          "tla": "GOA",
+          "crest": "https://crests.football-data.org/718.png",
+          "address": "Vetkampstraat 1 Deventer 7416 WK",
+          "website": "http://www.ga-eagles.nl",
+          "founded": 1902,
+          "clubColors": "Red / Yellow",
+          "venue": "De Adelaarshorst",
+          "lastUpdated": "2022-03-22T10:09:14Z"
+        },
+        "playedMatches": 2,
+        "goals": 2,
+        "assists": null,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 41302,
+          "name": "Brynjolfur Darri Willumsson",
+          "firstName": "Brynjólfur",
+          "lastName": "Willumsson",
+          "dateOfBirth": "2000-08-12",
+          "nationality": "Iceland",
+          "section": "Offence",
+          "position": null,
+          "shirtNumber": 10,
+          "lastUpdated": "2026-07-22T15:39:08Z"
+        },
+        "team": {
+          "id": 677,
+          "name": "FC Groningen",
+          "shortName": "Groningen",
+          "tla": "GRO",
+          "crest": "https://crests.football-data.org/677.png",
+          "address": "Boumaboulevard 41 Groningen 9701 BJ",
+          "website": "http://www.fcgroningen.nl",
+          "founded": 1921,
+          "clubColors": "Green / White",
+          "venue": "Hitachi Capital Mobility Stadion",
+          "lastUpdated": "2022-03-22T10:10:56Z"
+        },
+        "playedMatches": 2,
+        "goals": 2,
+        "assists": null,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 188914,
+          "name": "Thom van Bergen",
+          "firstName": "Thom",
+          "lastName": "van Bergen",
+          "dateOfBirth": "2004-01-06",
+          "nationality": "Netherlands",
+          "section": "Offence",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2026-07-22T15:39:08Z"
+        },
+        "team": {
+          "id": 677,
+          "name": "FC Groningen",
+          "shortName": "Groningen",
+          "tla": "GRO",
+          "crest": "https://crests.football-data.org/677.png",
+          "address": "Boumaboulevard 41 Groningen 9701 BJ",
+          "website": "http://www.fcgroningen.nl",
+          "founded": 1921,
+          "clubColors": "Green / White",
+          "venue": "Hitachi Capital Mobility Stadion",
+          "lastUpdated": "2022-03-22T10:10:56Z"
+        },
+        "playedMatches": 2,
+        "goals": 2,
+        "assists": 1,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 191155,
+          "name": "Irakli Yegoian",
+          "firstName": "Irakli",
+          "lastName": "Yegoian",
+          "dateOfBirth": "2004-03-19",
+          "nationality": "Georgia",
+          "section": "Midfield",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2024-08-08T09:41:24Z"
+        },
+        "team": {
+          "id": 670,
+          "name": "SBV Excelsior",
+          "shortName": "Excelsior",
+          "tla": "EXC",
+          "crest": "https://crests.football-data.org/670.png",
+          "address": "Honingerdijk 110 Rotterdam 3062 NX",
+          "website": "http://www.sbvexcelsior.nl",
+          "founded": 1902,
+          "clubColors": "Red / Black",
+          "venue": "Van Donge & De Roo Stadion",
+          "lastUpdated": "2022-08-07T11:18:32Z"
+        },
+        "playedMatches": 1,
+        "goals": 1,
+        "assists": 2,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 214463,
+          "name": "David Garden",
+          "firstName": "David",
+          "lastName": "Garden",
+          "dateOfBirth": "2004-06-20",
+          "nationality": "Netherlands",
+          "section": "Offence",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2026-07-22T15:34:29Z"
+        },
+        "team": {
+          "id": 670,
+          "name": "SBV Excelsior",
+          "shortName": "Excelsior",
+          "tla": "EXC",
+          "crest": "https://crests.football-data.org/670.png",
+          "address": "Honingerdijk 110 Rotterdam 3062 NX",
+          "website": "http://www.sbvexcelsior.nl",
+          "founded": 1902,
+          "clubColors": "Red / Black",
+          "venue": "Van Donge & De Roo Stadion",
+          "lastUpdated": "2022-08-07T11:18:32Z"
+        },
+        "playedMatches": 1,
+        "goals": 1,
+        "assists": null,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 184643,
+          "name": "Patrick Brouwer",
+          "firstName": "Patrick",
+          "lastName": "Brouwer",
+          "dateOfBirth": "2001-03-19",
+          "nationality": "Netherlands",
+          "section": "Midfield",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2025-07-01T09:41:14Z"
+        },
+        "team": {
+          "id": 1912,
+          "name": "Telstar 1963",
+          "shortName": "Telstar",
+          "tla": "TEL",
+          "crest": "https://crests.football-data.org/1912.png",
+          "address": "Postbus 90 IJmuiden 1970 AB",
+          "website": "http://www.sctelstar.nl",
+          "founded": 1963,
+          "clubColors": "White / Blue",
+          "venue": "Rabobank IJmond Stadion",
+          "lastUpdated": "2022-09-25T07:40:09Z"
+        },
+        "playedMatches": 2,
+        "goals": 1,
+        "assists": 1,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 57281,
+          "name": "Rui Mendes",
+          "firstName": "",
+          "lastName": "Rui Mendes",
+          "dateOfBirth": "1999-11-10",
+          "nationality": "Portugal",
+          "section": "Offence",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2026-07-22T15:39:07Z"
+        },
+        "team": {
+          "id": 1912,
+          "name": "Telstar 1963",
+          "shortName": "Telstar",
+          "tla": "TEL",
+          "crest": "https://crests.football-data.org/1912.png",
+          "address": "Postbus 90 IJmuiden 1970 AB",
+          "website": "http://www.sctelstar.nl",
+          "founded": 1963,
+          "clubColors": "White / Blue",
+          "venue": "Rabobank IJmond Stadion",
+          "lastUpdated": "2022-09-25T07:40:09Z"
+        },
+        "playedMatches": 2,
+        "goals": 1,
+        "assists": null,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 165131,
+          "name": "Devin Haen",
+          "firstName": "Devin",
+          "lastName": "Haen",
+          "dateOfBirth": "2004-06-18",
+          "nationality": "Netherlands",
+          "section": "Offence",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2026-07-22T15:39:07Z"
+        },
+        "team": {
+          "id": 672,
+          "name": "Willem II Tilburg",
+          "shortName": "Willem II",
+          "tla": "WII",
+          "crest": "https://crests.football-data.org/672.png",
+          "address": "Goirleseweg 34 Tilburg 5026 PC",
+          "website": "http://www.willem-II.nl",
+          "founded": 1896,
+          "clubColors": "Red / White / Blue",
+          "venue": "Koning Willem II Stadion",
+          "lastUpdated": "2022-03-24T17:06:41Z"
+        },
+        "playedMatches": 2,
+        "goals": 1,
+        "assists": 1,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 10139,
+          "name": "Melle  Meulensteen",
+          "firstName": "Melle",
+          "lastName": "Meulensteen",
+          "dateOfBirth": "1999-07-04",
+          "nationality": "Netherlands",
+          "section": "Midfield",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2026-07-22T15:39:08Z"
+        },
+        "team": {
+          "id": 718,
+          "name": "Go Ahead Eagles",
+          "shortName": "Go Ahead",
+          "tla": "GOA",
+          "crest": "https://crests.football-data.org/718.png",
+          "address": "Vetkampstraat 1 Deventer 7416 WK",
+          "website": "http://www.ga-eagles.nl",
+          "founded": 1902,
+          "clubColors": "Red / Yellow",
+          "venue": "De Adelaarshorst",
+          "lastUpdated": "2022-03-22T10:09:14Z"
+        },
+        "playedMatches": 1,
+        "goals": 1,
+        "assists": 1,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 280744,
+          "name": "Erik Flataker",
+          "firstName": "Erik",
+          "lastName": "Flataker",
+          "dateOfBirth": "2004-12-26",
+          "nationality": "Norway",
+          "section": "Offence",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2026-01-15T09:43:56Z"
+        },
+        "team": {
+          "id": 718,
+          "name": "Go Ahead Eagles",
+          "shortName": "Go Ahead",
+          "tla": "GOA",
+          "crest": "https://crests.football-data.org/718.png",
+          "address": "Vetkampstraat 1 Deventer 7416 WK",
+          "website": "http://www.ga-eagles.nl",
+          "founded": 1902,
+          "clubColors": "Red / Yellow",
+          "venue": "De Adelaarshorst",
+          "lastUpdated": "2022-03-22T10:09:14Z"
+        },
+        "playedMatches": 2,
+        "goals": 1,
+        "assists": null,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 157121,
+          "name": "Julius Dirksen",
+          "firstName": "Julius",
+          "lastName": "Dirksen",
+          "dateOfBirth": "2003-02-02",
+          "nationality": "Netherlands",
+          "section": "Defence",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2026-07-22T15:39:08Z"
+        },
+        "team": {
+          "id": 718,
+          "name": "Go Ahead Eagles",
+          "shortName": "Go Ahead",
+          "tla": "GOA",
+          "crest": "https://crests.football-data.org/718.png",
+          "address": "Vetkampstraat 1 Deventer 7416 WK",
+          "website": "http://www.ga-eagles.nl",
+          "founded": 1902,
+          "clubColors": "Red / Yellow",
+          "venue": "De Adelaarshorst",
+          "lastUpdated": "2022-03-22T10:09:14Z"
+        },
+        "playedMatches": 1,
+        "goals": 1,
+        "assists": null,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 9880,
+          "name": "Ole Romeny",
+          "firstName": "Ole",
+          "lastName": "Romeny",
+          "dateOfBirth": "2000-06-20",
+          "nationality": "Indonesia",
+          "section": "Offence",
+          "position": null,
+          "shirtNumber": 17,
+          "lastUpdated": "2026-07-22T15:39:08Z"
+        },
+        "team": {
+          "id": 1920,
+          "name": "Fortuna Sittard",
+          "shortName": "Sittard",
+          "tla": "SIT",
+          "crest": "https://crests.football-data.org/1920.png",
+          "address": "Milaanstraat 120 Sittard 6135 LH",
+          "website": "http://www.fortuna-sittard.nl",
+          "founded": 1968,
+          "clubColors": "Yellow / Green",
+          "venue": "Fortuna Sittard Stadion",
+          "lastUpdated": "2022-03-22T10:11:54Z"
+        },
+        "playedMatches": 2,
+        "goals": 1,
+        "assists": null,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 184642,
+          "name": "Ryan Flamingo",
+          "firstName": "Ryan",
+          "lastName": "Flamingo",
+          "dateOfBirth": "2002-12-31",
+          "nationality": "Netherlands",
+          "section": "Defence",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2026-07-22T15:39:08Z"
+        },
+        "team": {
+          "id": 674,
+          "name": "PSV",
+          "shortName": "PSV",
+          "tla": "PSV",
+          "crest": "https://crests.football-data.org/674.png",
+          "address": "Fredriklaan 10a Eindhoven 5616 NH",
+          "website": "http://www.psv.nl",
+          "founded": 1913,
+          "clubColors": "Red / White",
+          "venue": "Philips Stadion",
+          "lastUpdated": "2022-03-06T09:30:40Z"
+        },
+        "playedMatches": 2,
+        "goals": 1,
+        "assists": null,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 283059,
+          "name": "Noah Fernandez",
+          "firstName": "Noah",
+          "lastName": "Fernandez",
+          "dateOfBirth": "2008-01-09",
+          "nationality": "Belgium",
+          "section": "Midfield",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2025-08-12T09:41:26Z"
+        },
+        "team": {
+          "id": 674,
+          "name": "PSV",
+          "shortName": "PSV",
+          "tla": "PSV",
+          "crest": "https://crests.football-data.org/674.png",
+          "address": "Fredriklaan 10a Eindhoven 5616 NH",
+          "website": "http://www.psv.nl",
+          "founded": 1913,
+          "clubColors": "Red / White",
+          "venue": "Philips Stadion",
+          "lastUpdated": "2022-03-06T09:30:40Z"
+        },
+        "playedMatches": 1,
+        "goals": 1,
+        "assists": null,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 160443,
+          "name": "Edouard Michut",
+          "firstName": "Edouard",
+          "lastName": "Michut",
+          "dateOfBirth": "2003-03-04",
+          "nationality": "France",
+          "section": "Midfield",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2026-07-22T15:39:08Z"
+        },
+        "team": {
+          "id": 1920,
+          "name": "Fortuna Sittard",
+          "shortName": "Sittard",
+          "tla": "SIT",
+          "crest": "https://crests.football-data.org/1920.png",
+          "address": "Milaanstraat 120 Sittard 6135 LH",
+          "website": "http://www.fortuna-sittard.nl",
+          "founded": 1968,
+          "clubColors": "Yellow / Green",
+          "venue": "Fortuna Sittard Stadion",
+          "lastUpdated": "2022-03-22T10:11:54Z"
+        },
+        "playedMatches": 2,
+        "goals": 1,
+        "assists": null,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 178402,
+          "name": "Ro-Zangelo Daal",
+          "firstName": "Ro-Zangelo",
+          "lastName": "Daal",
+          "dateOfBirth": "2004-02-10",
+          "nationality": "Netherlands",
+          "section": "Offence",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2024-01-27T09:41:37Z"
+        },
+        "team": {
+          "id": 682,
+          "name": "AZ",
+          "shortName": "AZ",
+          "tla": "AZ",
+          "crest": "https://crests.football-data.org/682.png",
+          "address": "Stadionweg 1 Alkmaar 1812 AZ",
+          "website": "http://www.az.nl",
+          "founded": 1967,
+          "clubColors": "Red / White",
+          "venue": "AFAS Stadion",
+          "lastUpdated": "2022-03-22T10:11:18Z"
+        },
+        "playedMatches": 2,
+        "goals": 1,
+        "assists": null,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 7690,
+          "name": "Calvin Stengs",
+          "firstName": "Calvin",
+          "lastName": "Stengs",
+          "dateOfBirth": "1998-12-18",
+          "nationality": "Netherlands",
+          "section": "Midfield",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2026-07-22T15:39:08Z"
+        },
+        "team": {
+          "id": 682,
+          "name": "AZ",
+          "shortName": "AZ",
+          "tla": "AZ",
+          "crest": "https://crests.football-data.org/682.png",
+          "address": "Stadionweg 1 Alkmaar 1812 AZ",
+          "website": "http://www.az.nl",
+          "founded": 1967,
+          "clubColors": "Red / White",
+          "venue": "AFAS Stadion",
+          "lastUpdated": "2022-03-22T10:11:18Z"
+        },
+        "playedMatches": 2,
+        "goals": 1,
+        "assists": null,
+        "penalties": null
+      },
+      {
+        "player": {
+          "id": 169190,
+          "name": "Luciano Valente",
+          "firstName": "Luciano",
+          "lastName": "Valente",
+          "dateOfBirth": "2003-10-04",
+          "nationality": "Netherlands",
+          "section": "Midfield",
+          "position": null,
+          "shirtNumber": null,
+          "lastUpdated": "2026-07-22T15:39:09Z"
+        },
+        "team": {
+          "id": 675,
+          "name": "Feyenoord Rotterdam",
+          "shortName": "Feyenoord",
+          "tla": "FEY",
+          "crest": "https://crests.football-data.org/675.png",
+          "address": "Van Zandvlietplein 3 Rotterdam 3007 AP",
+          "website": "http://www.feyenoord.nl",
+          "founded": 1908,
+          "clubColors": "Red / White / Black",
+          "venue": "Stadion Feijenoord",
+          "lastUpdated": "2022-03-24T17:06:52Z"
+        },
+        "playedMatches": 2,
+        "goals": 1,
+        "assists": null,
+        "penalties": null
+      }
+    ]
   }
 }
