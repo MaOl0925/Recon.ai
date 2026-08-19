@@ -365,7 +365,7 @@
         <div class="profile-scroll">
           <div class="section-label">Data sources</div>
           <div class="toggle-row">
-            <div><div class="tr-label">Live data</div><div class="tr-sub">Blends real match data (StatsBomb), real club form (openfootball), and real league standings (football-data.org) into one response, presented as a single source</div></div>
+            <div><div class="tr-label">Live data</div><div class="tr-sub">Blends real match data (StatsBomb), real club form (openfootball), real league standings (football-data.org), and real club season records (API-Football, cached) into one response, presented as a single source</div></div>
             <div class="switch" id="live-data-toggle"><div class="knob"></div></div>
           </div>
           <div class="section-label">Pitch-side reliability</div>
@@ -443,37 +443,89 @@
   </div>
 
 <script>
-/* ---------------- Synthetic player pool ---------------- */
-const POOL = [
-  {name:"J. Okafor", club:"Preston North End", age:24, pos:"CB", value:2.1, gbe:true, s:{aerial:5.8, passAcc:81, interceptions:2.1, tackles:2.6, xg:0.02, goals:0.01, sot:0, turnovers:0.8, keyPasses:0.1, appearances:30, minutes:2580, rating:7.44, assists:7, yellowCards:8, redCards:0, duelsWon:3.9}},
-  {name:"M. Hallgren", club:"PSV Eindhoven", age:26, pos:"CB", value:4.6, gbe:true, s:{aerial:5.4, passAcc:88, interceptions:1.7, tackles:2.1, xg:0.01, goals:0.0, sot:0, turnovers:0.5, keyPasses:0.2, appearances:26, minutes:1872, rating:7.53, assists:5, yellowCards:2, redCards:1, duelsWon:3.3}},
-  {name:"D. Reyes", club:"Crewe Alexandra", age:21, pos:"CB", value:0.45, gbe:true, s:{aerial:5.1, passAcc:76, interceptions:2.4, tackles:2.9, xg:0.0, goals:0.0, sot:0, turnovers:1.1, keyPasses:0.0, appearances:37, minutes:3145, rating:7.22, assists:5, yellowCards:0, redCards:0, duelsWon:4.2}},
-  {name:"O. Bassong", club:"Rangers", age:29, pos:"CB", value:1.6, gbe:false, s:{aerial:6.1, passAcc:79, interceptions:1.9, tackles:2.3, xg:0.02, goals:0.0, sot:0, turnovers:0.9, keyPasses:0.1, appearances:38, minutes:2736, rating:7.0, assists:1, yellowCards:3, redCards:0, duelsWon:2.5}},
+/* ---------------- Dynamically generated illustrative player pool ---------------- */
+/* Replaces a hand-typed list with a real generator, so breadth scales by editing one
+   config (club list, positions, players-per-position) instead of hand-adding entries.
+   Deterministic (seeded per player) so the same players appear every load — search/sort
+   behavior stays stable, this isn't re-randomized on every page visit. All names are
+   generated from generic name-part banks, not real people. */
 
-  {name:"T. Virtanen", club:"Rangers", age:23, pos:"ST", value:3.8, gbe:true, s:{xg:0.61, goals:0.31, sot:39, turnovers:1.2, aerial:2.1, passAcc:68, keyPasses:0.8, interceptions:0.2, appearances:30, minutes:2700, rating:6.48, assists:4, yellowCards:7, redCards:0, duelsWon:4.8}},
-  {name:"B. Okoli", club:"Leeds United", age:20, pos:"ST", value:1.2, gbe:false, s:{xg:0.54, goals:0.29, sot:36, turnovers:1.4, aerial:1.8, passAcc:64, keyPasses:0.7, interceptions:0.1, appearances:37, minutes:2812, rating:6.46, assists:3, yellowCards:7, redCards:0, duelsWon:5.5}},
-  {name:"K. Larsen", club:"Preston North End", age:22, pos:"ST", value:0.9, gbe:true, s:{xg:0.48, goals:0.22, sot:33, turnovers:1.6, aerial:2.4, passAcc:61, keyPasses:0.6, interceptions:0.2, appearances:31, minutes:2387, rating:7.33, assists:6, yellowCards:2, redCards:1, duelsWon:4.8}},
-  {name:"F. Adeyemi", club:"PSV Eindhoven", age:26, pos:"ST", value:5.2, gbe:true, s:{xg:0.58, goals:0.55, sot:44, turnovers:0.9, aerial:1.9, passAcc:71, keyPasses:1.0, interceptions:0.2, appearances:34, minutes:2482, rating:7.04, assists:7, yellowCards:8, redCards:0, duelsWon:4.0}},
-
-  {name:"A. Mensah", club:"PSV Eindhoven", age:22, pos:"WG", value:2.9, gbe:true, s:{keyPasses:2.4, dribbles:3.1, passAcc:79, xg:0.22, goals:0.14, sot:18, turnovers:1.8, aerial:0.6, interceptions:0.3, appearances:31, minutes:2449, rating:6.89, assists:1, yellowCards:6, redCards:0, duelsWon:3.5}},
-  {name:"R. Coelho", club:"Rangers", age:19, pos:"WG", value:0.6, gbe:false, s:{keyPasses:2.6, dribbles:3.6, passAcc:74, xg:0.19, goals:0.11, sot:16, turnovers:2.1, aerial:0.4, interceptions:0.2, appearances:22, minutes:1980, rating:6.68, assists:7, yellowCards:0, redCards:1, duelsWon:4.5}},
-  {name:"E. Nwosu", club:"Leeds United", age:24, pos:"WG", value:1.9, gbe:true, s:{keyPasses:1.9, dribbles:2.4, passAcc:81, xg:0.17, goals:0.12, sot:15, turnovers:1.3, aerial:0.5, interceptions:0.3, appearances:30, minutes:2160, rating:6.41, assists:2, yellowCards:5, redCards:0, duelsWon:3.0}},
-
-  {name:"S. Novak", club:"Leeds United", age:27, pos:"FB", value:1.8, gbe:true, s:{tackles:3.2, passAcc:83, interceptions:1.6, keyPasses:1.1, aerial:1.4, xg:0.03, goals:0.01, sot:2, turnovers:0.9, appearances:24, minutes:1920, rating:6.68, assists:1, yellowCards:8, redCards:0, duelsWon:5.9}},
-  {name:"P. Adeyemi", club:"Crewe Alexandra", age:22, pos:"FB", value:0.35, gbe:true, s:{tackles:2.9, passAcc:77, interceptions:1.8, keyPasses:0.9, aerial:1.2, xg:0.02, goals:0.0, sot:1, turnovers:1.2, appearances:27, minutes:2295, rating:6.48, assists:4, yellowCards:1, redCards:0, duelsWon:4.6}},
-  {name:"L. Girard", club:"Rangers", age:25, pos:"FB", value:1.5, gbe:false, s:{tackles:3.0, passAcc:80, interceptions:1.5, keyPasses:1.3, aerial:1.6, xg:0.02, goals:0.01, sot:2, turnovers:1.0, appearances:23, minutes:1702, rating:6.53, assists:0, yellowCards:6, redCards:0, duelsWon:4.7}},
-
-  {name:"L. Bergström", club:"PSV Eindhoven", age:24, pos:"CM", value:2.4, gbe:true, s:{passAcc:87, keyPasses:2.1, interceptions:1.6, tackles:2.0, xg:0.09, goals:0.05, sot:6, turnovers:1.1, aerial:1.1, appearances:36, minutes:3168, rating:6.94, assists:2, yellowCards:1, redCards:0, duelsWon:2.8}},
-  {name:"H. Osei", club:"Rangers", age:21, pos:"CM", value:0.7, gbe:false, s:{passAcc:79, keyPasses:1.7, interceptions:2.0, tackles:2.4, xg:0.07, goals:0.04, sot:5, turnovers:1.4, aerial:1.0, appearances:23, minutes:1679, rating:6.58, assists:2, yellowCards:6, redCards:0, duelsWon:5.2}},
-  {name:"C. Whitfield", club:"Leeds United", age:29, pos:"CM", value:1.1, gbe:true, s:{passAcc:84, keyPasses:1.5, interceptions:2.3, tackles:2.6, xg:0.05, goals:0.03, sot:4, turnovers:0.8, aerial:1.2, appearances:30, minutes:2550, rating:7.21, assists:1, yellowCards:8, redCards:0, duelsWon:4.9}},
-
-  {name:"D. Marsh", club:"Sunderland", age:25, pos:"CB", value:2.7, gbe:true, s:{aerial:5.6, passAcc:83, interceptions:2.0, tackles:2.5, xg:0.02, goals:0.0, sot:0, turnovers:0.7, keyPasses:0.1, appearances:27, minutes:2403, rating:7.3, assists:1, yellowCards:5, redCards:0, duelsWon:3.5}},
-  {name:"J. Ferreira", club:"Sunderland", age:23, pos:"ST", value:2.2, gbe:true, s:{xg:0.51, goals:0.26, sot:34, turnovers:1.3, aerial:2.0, passAcc:66, keyPasses:0.7, interceptions:0.2, appearances:38, minutes:3420, rating:6.55, assists:0, yellowCards:0, redCards:0, duelsWon:5.4}},
-  {name:"T. Winslow", club:"Middlesbrough", age:22, pos:"WG", value:1.6, gbe:true, s:{keyPasses:2.2, dribbles:2.9, passAcc:77, xg:0.20, goals:0.13, sot:17, turnovers:1.7, aerial:0.5, interceptions:0.2, appearances:35, minutes:2905, rating:6.75, assists:3, yellowCards:2, redCards:0, duelsWon:4.6}},
-  {name:"A. Duarte", club:"Middlesbrough", age:26, pos:"CM", value:1.3, gbe:false, s:{passAcc:82, keyPasses:1.8, interceptions:2.1, tackles:2.5, xg:0.06, goals:0.03, sot:5, turnovers:1.0, aerial:1.1, appearances:37, minutes:2886, rating:6.68, assists:6, yellowCards:8, redCards:0, duelsWon:3.9}},
-  {name:"R. Fenwick", club:"Norwich City", age:20, pos:"FB", value:0.8, gbe:true, s:{tackles:2.8, passAcc:78, interceptions:1.7, keyPasses:1.0, aerial:1.3, xg:0.02, goals:0.0, sot:1, turnovers:1.1, appearances:28, minutes:2240, rating:6.78, assists:4, yellowCards:7, redCards:0, duelsWon:4.7}},
-  {name:"O. Kristiansen", club:"Norwich City", age:28, pos:"CB", value:1.9, gbe:false, s:{aerial:5.3, passAcc:80, interceptions:1.8, tackles:2.4, xg:0.01, goals:0.0, sot:0, turnovers:0.8, keyPasses:0.1, appearances:33, minutes:2541, rating:6.88, assists:6, yellowCards:3, redCards:0, duelsWon:3.5}},
+const GEN_CLUBS = [
+  "Preston North End","Leeds United","Crewe Alexandra","Rangers","PSV Eindhoven",
+  "Sunderland","Middlesbrough","Norwich City","Sheffield United","West Bromwich Albion",
+  "Coventry City","Bristol City","Watford","Hull City","Millwall","Swansea City",
+  "Cardiff City","Stoke City","Blackburn Rovers","Derby County","Luton Town",
+  "Oxford United","Sheffield Wednesday","Portsmouth"
 ];
+const GEN_POSITIONS = ["CB","FB","WG","ST","CM"];
+const GEN_PLAYERS_PER_SLOT = 2; // per club, per position — raise this for an even bigger pool
+
+const GEN_INITIALS = ["A","B","C","D","E","F","G","H","J","K","L","M","N","O","P","R","S","T","W"];
+const GEN_SURNAMES = [
+  "Okafor","Hallgren","Reyes","Bassong","Virtanen","Okoli","Larsen","Adeyemi","Mensah","Coelho",
+  "Nwosu","Novak","Adeyemi","Girard","Bergstrom","Osei","Whitfield","Marsh","Ferreira","Winslow",
+  "Duarte","Fenwick","Kristiansen","Braithwaite","Adeyanju","Okonkwo","Prentice","Kowalski",
+  "Delacroix","Hendricks","Moreau","Vasquez","Lindqvist","Petrov","Aoyama","Cissé","Rowntree",
+  "Sundstrom","Blackwood","Fairclough","Anders","Kolo","Vidal","Marchetti","Sorensen","Trentham",
+  "Odogwu","Halvorsen","Castellano","Whitmore","Beckert"
+];
+
+function seededRng(seedStr){
+  let h = 1779033703 ^ seedStr.length;
+  for(let i=0;i<seedStr.length;i++){
+    h = Math.imul(h ^ seedStr.charCodeAt(i), 3432918353);
+    h = h << 13 | h >>> 19;
+  }
+  return function(){
+    h = Math.imul(h ^ h >>> 16, 2246822507);
+    h = Math.imul(h ^ h >>> 13, 3266489909);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  };
+}
+function rngBetween(rng, min, max, decimals){
+  const v = min + rng() * (max - min);
+  return decimals !== undefined ? Math.round(v * Math.pow(10, decimals)) / Math.pow(10, decimals) : Math.round(v);
+}
+
+// Per-position realistic-illustrative stat ranges, same spirit as the original hand-written entries.
+const GEN_STAT_RANGES = {
+  CB: (rng)=>({ aerial:rngBetween(rng,4.6,6.2,1), passAcc:rngBetween(rng,74,89), interceptions:rngBetween(rng,1.5,2.6,1), tackles:rngBetween(rng,2.0,3.0,1), xg:rngBetween(rng,0,0.03,2), goals:0, sot:0, turnovers:rngBetween(rng,0.5,1.2,1), keyPasses:rngBetween(rng,0,0.3,1) }),
+  FB: (rng)=>({ tackles:rngBetween(rng,2.6,3.3,1), passAcc:rngBetween(rng,75,86), interceptions:rngBetween(rng,1.4,2.0,1), keyPasses:rngBetween(rng,0.8,1.4,1), aerial:rngBetween(rng,1.0,1.7,1), xg:rngBetween(rng,0.01,0.03,2), goals:0, sot:rngBetween(rng,0,2) }),
+  WG: (rng)=>({ keyPasses:rngBetween(rng,1.7,2.7,1), dribbles:rngBetween(rng,2.3,3.7,1), passAcc:rngBetween(rng,73,82), xg:rngBetween(rng,0.16,0.23,2), goals:rngBetween(rng,0.10,0.15,2), sot:rngBetween(rng,14,19), turnovers:rngBetween(rng,1.2,2.2,1), aerial:rngBetween(rng,0.4,0.7,1), interceptions:rngBetween(rng,0.1,0.3,1) }),
+  ST: (rng)=>({ xg:rngBetween(rng,0.44,0.62,2), goals:rngBetween(rng,0.19,0.32,2), sot:rngBetween(rng,30,40), turnovers:rngBetween(rng,1.1,1.7,1), aerial:rngBetween(rng,1.7,2.5,1), passAcc:rngBetween(rng,60,72), keyPasses:rngBetween(rng,0.5,1.0,1), interceptions:rngBetween(rng,0.1,0.3,1) }),
+  CM: (rng)=>({ passAcc:rngBetween(rng,78,88), keyPasses:rngBetween(rng,1.3,2.2,1), interceptions:rngBetween(rng,1.5,2.4,1), tackles:rngBetween(rng,1.9,2.7,1), xg:rngBetween(rng,0.04,0.09,2), goals:rngBetween(rng,0.02,0.06,2), sot:rngBetween(rng,3,6), turnovers:rngBetween(rng,0.7,1.5,1), aerial:rngBetween(rng,0.9,1.3,1) }),
+};
+const GEN_VALUE_RANGE = { CB:[0.4,4.8], FB:[0.3,2.2], WG:[0.5,3.2], ST:[0.7,5.5], CM:[0.5,2.7] };
+
+function generatePool(){
+  const pool = [];
+  GEN_CLUBS.forEach(club=>{
+    GEN_POSITIONS.forEach(pos=>{
+      for(let i=0;i<GEN_PLAYERS_PER_SLOT;i++){
+        const seed = `${club}-${pos}-${i}`;
+        const rng = seededRng(seed);
+        const initial = GEN_INITIALS[Math.floor(rng()*GEN_INITIALS.length)];
+        const surname = GEN_SURNAMES[Math.floor(rng()*GEN_SURNAMES.length)];
+        const age = rngBetween(rng, 18, 32);
+        const [vMin,vMax] = GEN_VALUE_RANGE[pos];
+        const value = rngBetween(rng, vMin, vMax, 2);
+        const gbe = rng() > 0.35;
+        const s = GEN_STAT_RANGES[pos](rng);
+        s.appearances = rngBetween(rng, 18, 38);
+        s.minutes = s.appearances * rngBetween(rng, 65, 90);
+        s.rating = rngBetween(rng, 6.2, 7.7, 2);
+        s.assists = rngBetween(rng, 0, 8);
+        s.yellowCards = rngBetween(rng, 0, 9);
+        s.redCards = rng() < 0.1 ? 1 : 0;
+        s.duelsWon = rngBetween(rng, 2.3, 6.2, 1);
+        pool.push({ name: `${initial}. ${surname}`, club, age, pos, value, gbe, s });
+      }
+    });
+  });
+  return pool;
+}
+const POOL = generatePool();
 
 const POS_MAP = [
   [/centre.?back|center.?back|\bcb\b|central defender/i,"CB"],
@@ -555,7 +607,7 @@ function runSearch(text){
   }
 
   const totalMatches = pool.length;
-  const results = pool.slice(0,4).map(p=>{
+  const results = pool.slice(0,10).map(p=>{
     let statLabel, statVal;
     if(sortKey === "__xgdiff"){ statLabel="G−xG/90"; statVal=(p.s.goals-p.s.xg).toFixed(2); }
     else if(sortKey && p.s[sortKey]!==undefined){
@@ -686,7 +738,7 @@ function runLiveSearch(text, players){
   else pool.sort((a,b)=>(b.s.shots+b.s.passAtt)-(a.s.shots+a.s.passAtt));
 
   const totalMatches = pool.length;
-  const results = pool.slice(0,4).map(p=>{
+  const results = pool.slice(0,10).map(p=>{
     let statLabel, statVal;
     if(sortKey === "__xgdiff"){ statLabel="G−xG"; statVal=(p.s.goals-p.s.xg).toFixed(2); }
     else if(sortKey === "passAcc"){ statLabel="PASS%"; statVal=p.s.passAcc+"%"; }
@@ -839,6 +891,72 @@ async function enrichWithStandings(results){
   } catch(e){
     return false;
   }
+}
+
+/* ---------------- Team season stats (cache-team-stats.py output) ---------------- */
+/* Different SHAPE of data from everything else — this is team-level season stats
+   (fixtures/wins/goals), not player-level. Covers whichever clubs are listed in
+   data/team-stats/index.json — cache-team-stats.py maintains that file, so adding
+   a club there is the ONLY step needed; nothing here needs hand-editing per club.
+   Reads committed static files, same safe pattern as football-data.org and
+   efl-squads — no key involved at runtime. */
+const TEAM_STATS_SEASON = 2024; // most recent season the free plan allows
+let teamStatsIndex = null;
+let teamStatsIndexLoadFailed = false;
+let teamStatsCache = {};
+
+async function loadTeamStatsIndex(){
+  if(teamStatsIndex) return teamStatsIndex;
+  if(teamStatsIndexLoadFailed) return null;
+  try{
+    const res = await fetch('data/team-stats/index.json');
+    if(!res.ok) throw new Error('index fetch failed: ' + res.status);
+    teamStatsIndex = await res.json(); // { "Club Name": teamId, ... }
+    return teamStatsIndex;
+  } catch(e){
+    teamStatsIndexLoadFailed = true; // don't retry every query if it's just not deployed yet
+    return null;
+  }
+}
+
+async function loadTeamStats(teamId){
+  if(teamStatsCache[teamId]) return teamStatsCache[teamId];
+  const res = await fetch(`data/team-stats/${teamId}_${TEAM_STATS_SEASON}.json`);
+  if(!res.ok) throw new Error('team-stats fetch failed: ' + teamId + ' (' + res.status + ')');
+  const data = await res.json();
+  teamStatsCache[teamId] = data;
+  return data;
+}
+
+function summarizeTeamStats(data){
+  const fx = data.fixtures || {};
+  const goals = data.goals || {};
+  return {
+    season: TEAM_STATS_SEASON,
+    played: fx.played?.total ?? null,
+    wins: fx.wins?.total ?? null,
+    draws: fx.draws?.total ?? null,
+    losses: fx.loses?.total ?? null,
+    goalsFor: goals.for?.total?.total ?? null,
+    goalsAgainst: goals.against?.total?.total ?? null,
+    form: data.form || null,
+  };
+}
+
+async function enrichWithTeamStats(results){
+  const index = await loadTeamStatsIndex();
+  if(!index) return false;
+  let usedAny = false;
+  for(const p of results){
+    const teamId = index[p.club];
+    if(!teamId) continue;
+    try{
+      const data = await loadTeamStats(teamId);
+      p.teamStats = summarizeTeamStats(data);
+      usedAny = true;
+    } catch(e){ /* this club is in the index but that season's file is missing — skip silently */ }
+  }
+  return usedAny;
 }
 
 /* ---------------- Real Championship squads (pre-fetched, static, same-origin) ---------------- */
@@ -1046,11 +1164,12 @@ async function runLiveBlend(text){
   try{ await loadLiveData(); statsbombOk = true; } catch(e){ statsbombOk = false; }
   const formOk = await enrichWithClubForm(response.results);       // openfootball
   const standingsOk = await enrichWithStandings(response.results); // football-data.org
+  const teamStatsOk = await enrichWithTeamStats(response.results); // cache-team-stats.py output
   response.realSquad = await runRealSquadSearch(text);              // real Championship players
   const squadOk = !!response.realSquad;
 
-  const sourcesOk = [statsbombOk, formOk, standingsOk, squadOk].filter(Boolean).length;
-  return { response, failed: !statsbombOk, sourcesOk, sourcesTotal: 4 };
+  const sourcesOk = [statsbombOk, formOk, standingsOk, teamStatsOk, squadOk].filter(Boolean).length;
+  return { response, failed: !statsbombOk, sourcesOk, sourcesTotal: 5 };
 }
 
 function liveSourceLabel(sourcesOk, sourcesTotal){
@@ -1261,6 +1380,10 @@ function openProfile(p){
     ? `<div class="section-label">League standing <span style="color:var(--text-dim); text-transform:none; letter-spacing:0;">— football-data.org, live</span></div>
        <div class="toggle-row"><div><div class="tr-label">${ordinal(p.standing.position)} in ${p.standing.competition}</div><div class="tr-sub">${p.standing.points} pts from ${p.standing.played} played</div></div></div>`
     : '';
+  const teamStatsHtml = p.teamStats
+    ? `<div class="section-label">Club season record <span style="color:var(--text-dim); text-transform:none; letter-spacing:0;">— API-Football, ${p.teamStats.season}</span></div>
+       <div class="toggle-row"><div><div class="tr-label">${p.teamStats.wins ?? '?'}W ${p.teamStats.draws ?? '?'}D ${p.teamStats.losses ?? '?'}L <span style="color:var(--text-dim); font-weight:400;">(${p.teamStats.played ?? '?'} played)</span></div><div class="tr-sub">Goals ${p.teamStats.goalsFor ?? '?'}–${p.teamStats.goalsAgainst ?? '?'}${p.teamStats.form ? ' · Form: '+p.teamStats.form : ''}</div></div></div>`
+    : '';
   profileScroll.innerHTML = `
     <div class="profile-head">
       <div class="avatar-lg">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
@@ -1270,6 +1393,7 @@ function openProfile(p){
     ${eligibilityHtml}
     ${formHtml}
     ${standingHtml}
+    ${teamStatsHtml}
     <div class="section-label">${isLive ? 'This match' : 'Season profile'}</div>
     <div id="stat-rows"></div>
   `;
