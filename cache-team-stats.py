@@ -44,8 +44,8 @@ BASE = "https://v3.football.api-sports.io"
 # All real Championship clubs currently in the app's illustrative pool.
 # Rangers and PSV excluded on purpose — see note above.
 CLUBS = [
-    "Preston North End", "Leeds United", "Crewe Alexandra", "Sunderland",
-    "Middlesbrough", "Norwich City", "Sheffield United", "West Bromwich Albion",
+    "Preston North End", "Leeds United","Sunderland",
+    "Middlesbrough", "Norwich City", "West Bromwich Albion",
     "Coventry City", "Bristol City", "Watford", "Hull City", "Millwall",
     "Swansea City", "Cardiff City", "Stoke City", "Blackburn Rovers",
     "Derby County", "Luton Town", "Oxford United", "Sheffield Wednesday",
