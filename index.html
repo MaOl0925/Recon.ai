@@ -99,7 +99,8 @@
 
   .results-meta{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
   .results-count{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); }
-  .sort{ font-size:11px; color:var(--text-dim); }
+  .sort-select{ font-size:11px; color:var(--text-dim); background:transparent; border:none; outline:none; text-align:right; -webkit-appearance:none; appearance:none; cursor:pointer; padding-right:2px; }
+  .sort-select option{ background:var(--surface); color:var(--text); }
 
   .results-list{ display:flex; flex-direction:column; gap:8px; }
   .pcard{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:12px 13px; display:flex; align-items:center; gap:11px; cursor:pointer; opacity:0; transform:translateY(8px); animation:cardIn .35s forwards; }
@@ -216,6 +217,13 @@
   .real-pcard{ background:var(--surface); border:1px solid rgba(212,166,58,.2); border-radius:var(--radius); padding:10px 13px; display:flex; align-items:center; gap:11px; margin-bottom:7px; cursor:default; }
   .real-pcard .avatar{ background:linear-gradient(145deg,#2C2410,#1B1F26); border-color:rgba(212,166,58,.3); }
   .real-more{ font-size:11.5px; color:var(--text-dim); padding:2px 2px 0; }
+  .diag-row{ display:flex; align-items:flex-start; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); font-size:12px; }
+  .diag-row:last-child{ border-bottom:none; }
+  .diag-dot{ width:8px;height:8px;border-radius:50%; flex:0 0 auto; margin-top:3px; }
+  .diag-dot.ok{ background:var(--sage); }
+  .diag-dot.fail{ background:var(--brick); }
+  .diag-name{ font-weight:600; }
+  .diag-detail{ color:var(--text-dim); font-size:11px; margin-top:2px; word-break:break-word; }
   .auth-note{ font-size:11px; color:var(--text-dim); line-height:1.6; margin-top:24px; padding-top:18px; border-top:1px solid var(--line); }
 </style>
 </head>
@@ -368,6 +376,8 @@
             <div><div class="tr-label">Live data</div><div class="tr-sub">Blends real match data (StatsBomb), real club form (openfootball), real league standings (football-data.org), and real club season records (API-Football, cached) into one response, presented as a single source</div></div>
             <div class="switch" id="live-data-toggle"><div class="knob"></div></div>
           </div>
+          <button class="auth-btn" id="test-sources-btn" style="margin:6px 0 4px; background:var(--surface-2); color:var(--text); border:1px solid var(--line);">Test live data sources</button>
+          <div id="source-test-results"></div>
           <div class="section-label">Pitch-side reliability</div>
           <div class="toggle-row">
             <div><div class="tr-label">Offline caching</div><div class="tr-sub">Keep last results available with no signal</div></div>
@@ -533,6 +543,7 @@ const POS_MAP = [
   [/winger|\bwg\b|wide (forward|player)/i,"WG"],
   [/striker|forward|\bst\b|centre.?forward|centre forward/i,"ST"],
   [/midfield|\bcm\b/i,"CM"],
+  [/defender|defence|defense/i,"DEF"], // bare "defenders" — broader than CB/FB, matched last so specific terms above still win
 ];
 
 const METRIC_MAP = [
@@ -550,7 +561,7 @@ function parseQuery(text){
   const filters = [];
   let position = null;
   for(const [re,code] of POS_MAP){ if(re.test(text)){ position = code; break; } }
-  if(position) filters.push({t:"Position", v:{CB:"Centre-Back",FB:"Full-Back",WG:"Winger",ST:"Striker",CM:"Midfielder"}[position]});
+  if(position) filters.push({t:"Position", v:{CB:"Centre-Back",FB:"Full-Back",WG:"Winger",ST:"Striker",CM:"Midfielder",DEF:"Defender (CB or FB)"}[position]});
 
   let metric = null;
   for(const m of METRIC_MAP){ if(m.test.test(text)){ metric = m; break; } }
@@ -582,12 +593,83 @@ function parseQuery(text){
   return {position, metric, ageMax, budgetMax, gbeReq, filters};
 }
 
-function runSearch(text){
-  const parsed = parseQuery(text);
+/* ---------------- Real NLQ layer (LLM-based), regex above kept as automatic fallback ---------------- */
+/* This calls Claude directly via the Anthropic API access available inside claude.ai artifacts.
+   IMPORTANT: that key-handling only exists in the claude.ai preview — there's no equivalent once
+   this is deployed standalone (e.g. GitHub Pages). A real production version needs a backend
+   proxy holding the key server-side, same conclusion as every other live source in this app.
+   So this is progressive enhancement: try the real AI parser, and if it's unreachable for any
+   reason (not previewing inside claude.ai, network issue, bad response), silently fall back to
+   the regex parser above — nothing breaks, search just gets less smart in that case. */
+const NLQ_METRIC_KEYS = METRIC_MAP.map(m=>m.key);
+
+async function parseQueryAI(text){
+  const system = `You are a query parser for a football recruitment scouting tool. Given a scout's natural-language search (which may contain typos, abbreviations, or be written in a language other than English), extract structured search filters.
+
+Respond with ONLY a JSON object, no other text, no markdown fences, in exactly this shape:
+{
+  "position": one of "CB" (centre-back), "FB" (full-back), "WG" (winger), "ST" (striker/forward), "CM" (central midfielder), "DEF" (defender, unspecified CB or FB), or null,
+  "metric": one of ${JSON.stringify(NLQ_METRIC_KEYS)}, or null — pick whichever the query is asking to rank/filter by, matching intent even if worded very differently (e.g. "who wins the ball in the air most" means "aerial"; "underachieving strikers" or "should be scoring more" means "__xgdiff"),
+  "ageMax": a number (the maximum age mentioned), or null,
+  "budgetMaxM": a number in millions of pounds (convert any currency/format mentioned into this), or null,
+  "gbeRequired": true only if the query explicitly asks about visa/work-permit/GBE/ESC eligibility, else false
+}`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 300,
+      system,
+      messages: [{ role: "user", content: text }]
+    })
+  });
+  if(!response.ok) throw new Error('NLQ API HTTP ' + response.status);
+  const data = await response.json();
+  const raw = (data.content || []).map(b=>b.text||'').join('');
+  const cleaned = raw.replace(/```json|```/g,'').trim();
+  const parsed = JSON.parse(cleaned);
+
+  // Convert into the exact same shape parseQuery() produces, so every downstream function
+  // (runSearch, runLiveSearch, runRealSquadSearch) works identically regardless of which parser ran.
+  const filters = [];
+  const position = ["CB","FB","WG","ST","CM","DEF"].includes(parsed.position) ? parsed.position : null;
+  if(position) filters.push({t:"Position", v:{CB:"Centre-Back",FB:"Full-Back",WG:"Winger",ST:"Striker",CM:"Midfielder",DEF:"Defender (CB or FB)"}[position]});
+
+  const metric = METRIC_MAP.find(m=>m.key===parsed.metric) || null;
+  if(metric) filters.push({t:"Metric", v: metric.label + (metric.key==="__xgdiff" ? " — underperforming" : " — Top range")});
+
+  const ageMax = (typeof parsed.ageMax === 'number' && parsed.ageMax >= 6 && parsed.ageMax <= 50) ? parsed.ageMax : null;
+  if(ageMax) filters.push({t:"Age", v:"Under "+ageMax});
+
+  const budgetMax = typeof parsed.budgetMaxM === 'number' ? Math.round(parsed.budgetMaxM*100)/100 : null;
+  if(budgetMax) filters.push({t:"Budget", v:"≤ £"+budgetMax+"M"});
+
+  const gbeReq = !!parsed.gbeRequired;
+  if(gbeReq) filters.push({t:"Eligibility", v:"GBE eligible", gbe:true});
+
+  return {position, metric, ageMax, budgetMax, gbeReq, filters, _viaAI:true};
+}
+
+let nlqAIFailed = false; // once it fails once (e.g. not in claude.ai preview), stop retrying every query — just use regex
+
+async function parseQuerySmart(text){
+  if(nlqAIFailed) return parseQuery(text);
+  try{
+    return await parseQueryAI(text);
+  } catch(e){
+    nlqAIFailed = true;
+    return parseQuery(text);
+  }
+}
+
+async function runSearch(text){
+  const parsed = await parseQuerySmart(text);
   let pool = POOL.slice();
   let fellBack = false;
 
-  if(parsed.position) pool = pool.filter(p=>p.pos===parsed.position);
+  if(parsed.position) pool = pool.filter(p=> parsed.position==="DEF" ? (p.pos==="CB"||p.pos==="FB") : p.pos===parsed.position);
   if(parsed.ageMax) pool = pool.filter(p=>p.age<=parsed.ageMax);
   if(parsed.budgetMax) pool = pool.filter(p=>p.value<=parsed.budgetMax);
   if(parsed.gbeReq) pool = pool.filter(p=>p.gbe===true);
@@ -722,11 +804,11 @@ const LIVE_METRIC_MAP = [
   {test:/shot/i, key:"shots", label:"Shots"},
 ];
 
-function runLiveSearch(text, players){
-  const parsed = parseQuery(text);
+async function runLiveSearch(text, players){
+  const parsed = await parseQuerySmart(text);
   let pool = players.slice();
   if(parsed.position && parsed.position !== "N/A") {
-    const filtered = pool.filter(p=>p.pos===parsed.position);
+    const filtered = pool.filter(p=> parsed.position==="DEF" ? (p.pos==="CB"||p.pos==="FB") : p.pos===parsed.position);
     if(filtered.length) pool = filtered;
   }
 
@@ -999,13 +1081,13 @@ async function loadEflSquads(){
 // API-Football's own coarse buckets — broader than the illustrative pool's CB/FB/WG/ST/CM,
 // so a query for "centre-backs" also matches "full-backs" here; that's an honest granularity
 // gap, not a bug, and the UI says so.
-const REAL_POSITION_MAP = { CB:"Defender", FB:"Defender", WG:"Midfielder", CM:"Midfielder", ST:"Attacker" };
+const REAL_POSITION_MAP = { CB:"Defender", FB:"Defender", DEF:"Defender", WG:"Midfielder", CM:"Midfielder", ST:"Attacker" };
 
 async function runRealSquadSearch(text){
   let squad;
   try{ squad = await loadEflSquads(); } catch(e){ return null; }
 
-  const parsed = parseQuery(text);
+  const parsed = await parseQuerySmart(text);
   let pool = squad;
   if(parsed.position){
     const bucket = REAL_POSITION_MAP[parsed.position];
@@ -1159,7 +1241,7 @@ async function runLiveBlend(text){
   // players in as the base result set means the other two sources can never find a match.
   // To make all three sources actually blend visibly, the demo pool (real club identities)
   // stays the base, and StatsBomb is only used to confirm the connection is real (see note).
-  const response = runSearch(text);
+  const response = await runSearch(text);
   let statsbombOk = false;
   try{ await loadLiveData(); statsbombOk = true; } catch(e){ statsbombOk = false; }
   const formOk = await enrichWithClubForm(response.results);       // openfootball
@@ -1233,9 +1315,9 @@ function sendMessage(){
     return;
   }
 
-  setTimeout(()=>{
+  setTimeout(async ()=>{
     typing.remove();
-    finishTurn(turnEl, threadId, text, runSearch(text));
+    finishTurn(turnEl, threadId, text, await runSearch(text));
   }, 650);
 }
 
@@ -1257,13 +1339,27 @@ function buildAssistantBlock(response, animate, sourceLabel){
   const sourceHtml = sourceLabel
     ? `<div class="fallback-note" style="color:var(--sage); border-color:rgba(95,165,122,.35); background:rgba(95,165,122,.08);">${sourceLabel}</div>`
     : '';
+
+  const showValue = canSee('value');
+  const sortOptions = [
+    ['relevance','Relevance'],
+    ['name-az','Name: A → Z'],
+    ['name-za','Name: Z → A'],
+    ...(showValue ? [['value-high','Transfer value: High → Low'],['value-low','Transfer value: Low → High']] : []),
+    ['age-young','Age: Youngest first'],
+    ['age-old','Age: Oldest first'],
+  ];
+  const sortOptionsHtml = sortOptions.map(([val,label])=>`<option value="${val}">${label}</option>`).join('');
+
   block.innerHTML = `
     <div class="assistant-tag"><div class="ring"><i></i></div><span>Recon</span></div>
     ${sourceHtml}
     ${fallbackHtml}
     <div class="breakdown-label"><span class="pulse"></span>QUERY UNDERSTOOD AS</div>
     <div class="filter-chips"></div>
-    <div class="results-meta"><div class="results-count">${response.totalMatches ?? response.results.length} matches</div><div class="sort">Sorted by relevance ▾</div></div>
+    <div class="results-meta"><div class="results-count">${response.totalMatches ?? response.results.length} matches</div>
+      <select class="sort-select">${sortOptionsHtml}</select>
+    </div>
     <div class="results-list"></div>
   `;
   const fc = block.querySelector('.filter-chips');
@@ -1275,24 +1371,46 @@ function buildAssistantBlock(response, animate, sourceLabel){
     c.innerHTML = `${f.t}: <b>${f.v}</b>`;
     fc.appendChild(c);
   });
+
   const list = block.querySelector('.results-list');
-  response.results.forEach((p,idx)=>{
-    const card = document.createElement('div');
-    card.className = 'pcard';
-    card.style.animationDelay = animate ? (idx*70)+'ms' : '0ms';
-    const showGbe = canSee('gbe');
-    const showValueStat = canSee('value') || p.statLabel !== 'VALUE';
-    const formHtml = p.clubForm ? ` · <span style="font-family:'IBM Plex Mono',monospace; color:var(--sage); letter-spacing:.05em;">${p.clubForm.form}</span>` : '';
-    card.innerHTML = `
-      <div class="avatar">${p.name.split(' ').map(w=>w[0]).join('')}</div>
-      <div class="pcard-mid">
-        <div class="pcard-name">${p.name}</div>
-        <div class="pcard-sub">${p.pos} · ${p.club}${p.age?' · '+p.age:''}${(p.gbe && showGbe) ? ' <span class="gbe-dot"></span>GBE' : ''}${formHtml}</div>
-      </div>
-      <div class="pcard-stat">${showValueStat ? `<div class="val">${p.statVal}</div><div class="lab">${p.statLabel}</div>` : `<div class="val" style="color:var(--text-dim); font-size:11px;">Restricted</div>`}</div>`;
-    card.onclick = ()=> openProfile(p);
-    list.appendChild(card);
-  });
+  const originalOrder = response.results.slice(); // preserve for "Relevance"
+
+  function sortedResults(mode){
+    const arr = response.results.slice();
+    switch(mode){
+      case 'name-az': return arr.sort((a,b)=> a.name.localeCompare(b.name));
+      case 'name-za': return arr.sort((a,b)=> b.name.localeCompare(a.name));
+      case 'value-high': return arr.sort((a,b)=> (b.value ?? -1) - (a.value ?? -1));
+      case 'value-low': return arr.sort((a,b)=> (a.value ?? 1e9) - (b.value ?? 1e9));
+      case 'age-young': return arr.sort((a,b)=> (a.age ?? 999) - (b.age ?? 999));
+      case 'age-old': return arr.sort((a,b)=> (b.age ?? -1) - (a.age ?? -1));
+      default: return originalOrder.slice(); // relevance = whatever order the search already produced
+    }
+  }
+
+  function renderCards(results){
+    list.innerHTML = '';
+    results.forEach((p,idx)=>{
+      const card = document.createElement('div');
+      card.className = 'pcard';
+      card.style.animationDelay = animate ? (idx*70)+'ms' : '0ms';
+      const showGbe = canSee('gbe');
+      const showValueStat = canSee('value') || p.statLabel !== 'VALUE';
+      const formHtml = p.clubForm ? ` · <span style="font-family:'IBM Plex Mono',monospace; color:var(--sage); letter-spacing:.05em;">${p.clubForm.form}</span>` : '';
+      card.innerHTML = `
+        <div class="avatar">${p.name.split(' ').map(w=>w[0]).join('')}</div>
+        <div class="pcard-mid">
+          <div class="pcard-name">${p.name}</div>
+          <div class="pcard-sub">${p.pos} · ${p.club}${p.age?' · '+p.age:''}${(p.gbe && showGbe) ? ' <span class="gbe-dot"></span>GBE' : ''}${formHtml}</div>
+        </div>
+        <div class="pcard-stat">${showValueStat ? `<div class="val">${p.statVal}</div><div class="lab">${p.statLabel}</div>` : `<div class="val" style="color:var(--text-dim); font-size:11px;">Restricted</div>`}</div>`;
+      card.onclick = ()=> openProfile(p);
+      list.appendChild(card);
+    });
+  }
+
+  renderCards(originalOrder);
+  block.querySelector('.sort-select').onchange = (e)=> renderCards(sortedResults(e.target.value));
 
   if(response.realSquad && response.realSquad.total > 0){
     const rs = response.realSquad;
@@ -1433,6 +1551,44 @@ document.getElementById('live-data-toggle').onclick = function(){
   liveMode = this.classList.contains('on');
 };
 
+document.getElementById('test-sources-btn').onclick = async function(){
+  const btn = this;
+  const resultsEl = document.getElementById('source-test-results');
+  btn.disabled = true;
+  btn.textContent = 'Testing...';
+  resultsEl.innerHTML = '';
+
+  const tests = [
+    { name: 'StatsBomb (match data)', run: ()=> loadLiveData() },
+    { name: 'openfootball (club form)', run: ()=> loadOpenfootball() },
+    { name: 'football-data.org (standings)', run: ()=> loadFootballData() },
+    { name: 'API-Football team stats (index.json)', run: ()=> loadTeamStatsIndex().then(r=>{ if(!r) throw new Error('index.json not found or empty — has cache-team-stats.py been run and committed?'); return r; }) },
+    { name: 'efl-squads (real player names)', run: ()=> loadEflSquads() },
+  ];
+
+  for(const t of tests){
+    const row = document.createElement('div');
+    row.className = 'diag-row';
+    row.innerHTML = `<div class="diag-dot" style="background:var(--text-dim);"></div><div><div class="diag-name">${t.name}</div><div class="diag-detail">Testing…</div></div>`;
+    resultsEl.appendChild(row);
+    try{
+      const result = await t.run();
+      let detail = 'Reachable and returned data.';
+      if(Array.isArray(result)) detail = `Reachable — ${result.length} item(s) returned.`;
+      else if(result && typeof result === 'object' && result.players) detail = `Reachable — ${result.players.length} player(s).`;
+      else if(result && typeof result === 'object') detail = `Reachable — ${Object.keys(result).length} key(s) in response.`;
+      row.querySelector('.diag-dot').className = 'diag-dot ok';
+      row.querySelector('.diag-detail').textContent = detail;
+    } catch(e){
+      row.querySelector('.diag-dot').className = 'diag-dot fail';
+      row.querySelector('.diag-detail').textContent = e.message || String(e);
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Test live data sources';
+};
+
 /* ---------------- Connectivity — pitch-side signal resilience ---------------- */
 let isOnline = navigator.onLine !== false;
 let pendingQueue = [];
@@ -1489,7 +1645,7 @@ function resolveQueuedTurn(q){
       finish(response, label);
     });
   } else {
-    finish(runSearch(q.text));
+    runSearch(q.text).then(finish);
   }
 }
 
