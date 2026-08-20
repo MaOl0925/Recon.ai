@@ -324,7 +324,7 @@
             <div class="ex-chip" data-q="Full backs I can afford for £2 million">Full backs, budget £2M</div>
           </div>
           <div class="composer">
-            <input id="query-input" type="text" placeholder="Message Recon…" autocomplete="off">
+            <input id="query-input" type="text" placeholder="Message Recon…" autocomplete="off" maxlength="300">
             <div class="icon-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/></svg></div>
             <button class="send-btn" id="send-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
           </div>
@@ -554,7 +554,7 @@ function generatePool(){
 const POOL = generatePool();
 
 const POS_MAP = [
-  [/centre.?back|center.?back|\bcb\b|central defender/i,"CB"],
+  [/centre.?back|center.?back|\bcbs?\b|central defender/i,"CB"],
   [/full.?back|\bfb\b|wing.?back/i,"FB"],
   [/winger|\bwg\b|wide (forward|player)/i,"WG"],
   [/striker|forward|\bst\b|centre.?forward|centre forward/i,"ST"],
@@ -592,18 +592,21 @@ function parseQuery(text){
 
   let budgetMax = null;
   const cleanText = text.replace(/,/g, '');
-  const budgetMatch = cleanText.match(/£\s?([\d.]+)\s?(m|million)?|budget of £?\s?([\d.]+)\s?(m|million)?/i);
+  const budgetMatch = cleanText.match(/£\s?([\d.]+)\s?(m|million|k|thousand)?|budget of £?\s?([\d.]+)\s?(m|million|k|thousand)?/i);
   if(budgetMatch){
     const rawNum = parseFloat(budgetMatch[1] || budgetMatch[3]);
-    const hasSuffix = !!(budgetMatch[2] || budgetMatch[4]);
+    const suffix = (budgetMatch[2] || budgetMatch[4] || '').toLowerCase();
     if(!isNaN(rawNum)){
-      const num = hasSuffix ? rawNum : (rawNum >= 1000 ? rawNum/1e6 : rawNum);
+      let num;
+      if(suffix === 'm' || suffix === 'million') num = rawNum;
+      else if(suffix === 'k' || suffix === 'thousand') num = rawNum / 1000; // DEF-05: was previously unhandled — "£800k" used to be read as £800M
+      else num = rawNum >= 1000 ? rawNum/1e6 : rawNum; // no suffix at all: still an inherent ambiguity for small bare numbers, unchanged for now
       budgetMax = Math.round(num*100)/100;
       filters.push({t:"Budget", v:"≤ £"+budgetMax+"M"});
     }
   }
 
-  const gbeReq = /gbe|eligib|work permit|\besc\b/i.test(text);
+  const gbeReq = /\bgbe\b|work permit|\besc\b|\bvisa\b/i.test(text); // DEF-06: removed bare "eligib" — was matching unrelated "eligible for..." phrases
   if(gbeReq) filters.push({t:"Eligibility", v:"GBE eligible", gbe:true});
 
   return {position, metric, ageMax, budgetMax, gbeReq, filters};
@@ -690,19 +693,37 @@ function rebuildFiltersDisplay(parsed){
   return filters;
 }
 
-function filterAndSort(parsed){
+function applyFilters(position, ageMax, budgetMax, gbeReq){
   let pool = POOL.slice();
+  if(position) pool = pool.filter(p=> position==="DEF" ? (p.pos==="CB"||p.pos==="FB") : p.pos===position);
+  if(ageMax) pool = pool.filter(p=>p.age<=ageMax);
+  if(budgetMax) pool = pool.filter(p=>p.value<=budgetMax);
+  if(gbeReq) pool = pool.filter(p=>p.gbe===true);
+  return pool;
+}
+
+function filterAndSort(parsed){
+  let {position, ageMax, budgetMax, gbeReq} = parsed;
+  let pool = applyFilters(position, ageMax, budgetMax, gbeReq);
   let fellBack = false;
+  const droppedFilters = [];
 
-  if(parsed.position) pool = pool.filter(p=> parsed.position==="DEF" ? (p.pos==="CB"||p.pos==="FB") : p.pos===parsed.position);
-  if(parsed.ageMax) pool = pool.filter(p=>p.age<=parsed.ageMax);
-  if(parsed.budgetMax) pool = pool.filter(p=>p.value<=parsed.budgetMax);
-  if(parsed.gbeReq) pool = pool.filter(p=>p.gbe===true);
+  if(pool.length===0){
+    fellBack = true;
+    // DEF-04: loosen ONE constraint at a time (budget, then age, then GBE — position kept
+    // longest) instead of discarding everything. Whatever's dropped here is actually removed
+    // from the filters shown, so the chip row never claims a constraint is active when it isn't.
+    if(budgetMax){ budgetMax = null; droppedFilters.push('Budget'); pool = applyFilters(position, ageMax, budgetMax, gbeReq); }
+    if(pool.length===0 && ageMax){ ageMax = null; droppedFilters.push('Age'); pool = applyFilters(position, ageMax, budgetMax, gbeReq); }
+    if(pool.length===0 && gbeReq){ gbeReq = false; droppedFilters.push('Eligibility'); pool = applyFilters(position, ageMax, budgetMax, gbeReq); }
+    if(pool.length===0 && position){ position = null; droppedFilters.push('Position'); pool = applyFilters(position, ageMax, budgetMax, gbeReq); }
+  }
 
-  if(pool.length===0){ pool = POOL.slice(); fellBack = true; }
+  const effectiveParsed = {...parsed, position, ageMax, budgetMax, gbeReq};
+  effectiveParsed.filters = rebuildFiltersDisplay(effectiveParsed);
 
-  const sortKey = parsed.metric ? parsed.metric.key : null;
-  const sortDir = parsed.metric && parsed.metric.dir !== undefined ? parsed.metric.dir : -1;
+  const sortKey = effectiveParsed.metric ? effectiveParsed.metric.key : null;
+  const sortDir = effectiveParsed.metric && effectiveParsed.metric.dir !== undefined ? effectiveParsed.metric.dir : -1;
   if(sortKey === "__xgdiff"){
     pool.sort((a,b)=> (a.s.goals-a.s.xg) - (b.s.goals-b.s.xg));
   } else if(sortKey){
@@ -724,7 +745,7 @@ function filterAndSort(parsed){
     return {...p, statLabel, statVal};
   });
 
-  return {parsed, fellBack, results, totalMatches};
+  return {parsed: effectiveParsed, fellBack, droppedFilters, results, totalMatches};
 }
 
 async function runSearch(text){
@@ -1059,17 +1080,16 @@ function summarizeTeamStats(data){
 async function enrichWithTeamStats(results){
   const index = await loadTeamStatsIndex();
   if(!index) return false;
-  let usedAny = false;
-  for(const p of results){
+  const outcomes = await Promise.all(results.map(async p=>{
     const teamId = index[p.club];
-    if(!teamId) continue;
+    if(!teamId) return false;
     try{
       const data = await loadTeamStats(teamId);
       p.teamStats = summarizeTeamStats(data);
-      usedAny = true;
-    } catch(e){ /* this club is in the index but that season's file is missing — skip silently */ }
-  }
-  return usedAny;
+      return true;
+    } catch(e){ return false; /* this club is in the index but that season's file is missing — skip silently */ }
+  }));
+  return outcomes.some(Boolean);
 }
 
 /* ---------------- Real Championship squads (pre-fetched, static, same-origin) ---------------- */
@@ -1154,7 +1174,7 @@ let threads = [];
 let currentThreadId = null;
 let historyLoadError = false;
 let lastSaveFailed = false;
-function threadsKey(){ return "recon-threads-v1:" + (currentUser ? currentUser.username : "anon"); }
+function threadsKey(username){ return "recon-threads-v1:" + (username || (currentUser ? currentUser.username : "anon")); }
 
 async function loadThreads(){
   try{
@@ -1168,8 +1188,8 @@ async function loadThreads(){
   }
   renderDrawer();
 }
-async function saveThreads(){
-  const ok = await kvSet(threadsKey(), JSON.stringify(threads));
+async function saveThreads(usernameOverride){
+  const ok = await kvSet(threadsKey(usernameOverride), JSON.stringify(threads));
   lastSaveFailed = !ok;
   renderDrawer();
 }
@@ -1227,7 +1247,7 @@ function renderStaticTurn(turn){
   userMsg.className = 'msg-user';
   userMsg.textContent = turn.query;
   el.appendChild(userMsg);
-  const block = buildAssistantBlock(turn.response);
+  const block = buildAssistantBlock(turn.response, false, turn.wasLive ? 'Live data' : undefined);
   el.appendChild(block);
   chatScroll.appendChild(el);
   block.querySelectorAll('.fchip, .pcard').forEach(n=>{ n.style.animation='none'; n.style.opacity=1; n.style.transform='none'; });
@@ -1277,13 +1297,18 @@ async function runLiveBlend(text){
   // To make all three sources actually blend visibly, the demo pool (real club identities)
   // stays the base, and StatsBomb is only used to confirm the connection is real (see note).
   const response = await runSearch(text);
-  let statsbombOk = false;
-  try{ await loadLiveData(); statsbombOk = true; } catch(e){ statsbombOk = false; }
-  const formOk = await enrichWithClubForm(response.results);       // openfootball
-  const standingsOk = await enrichWithStandings(response.results); // football-data.org
-  const teamStatsOk = await enrichWithTeamStats(response.results); // cache-team-stats.py output
-  response.realSquad = await runRealSquadSearch(text);              // real Championship players
-  const squadOk = !!response.realSquad;
+
+  // DEF-09: these five sources are independent of each other — run concurrently rather than
+  // one after another, so total latency is bounded by the slowest single source, not their sum.
+  const [statsbombOk, formOk, standingsOk, teamStatsOk, realSquad] = await Promise.all([
+    loadLiveData().then(()=>true).catch(()=>false),
+    enrichWithClubForm(response.results),
+    enrichWithStandings(response.results),
+    enrichWithTeamStats(response.results),
+    realSquadFromParsed(response.parsed), // DEF-08: reuses the parse runSearch already resolved — no second AI call, no risk of the two disagreeing
+  ]);
+  response.realSquad = realSquad;
+  const squadOk = !!realSquad;
 
   const sourcesOk = [statsbombOk, formOk, standingsOk, teamStatsOk, squadOk].filter(Boolean).length;
   return { response, failed: !statsbombOk, sourcesOk, sourcesTotal: 5 };
@@ -1310,7 +1335,7 @@ async function reRunWithParsed(parsed, wasLive){
 }
 
 function sendMessage(){
-  const text = input.value.trim();
+  const text = input.value.trim().slice(0, 300);
   if(!text) return;
   input.value = '';
   const empty = document.getElementById('empty-state');
@@ -1318,6 +1343,7 @@ function sendMessage(){
   document.getElementById('starter-chips').classList.add('hide');
 
   const threadId = ensureThreadId(text);
+  const actingUsername = currentUser ? currentUser.username : null; // DEF-11: captured now, not read fresh when the response resolves later
 
   const turnEl = document.createElement('div');
   turnEl.className = 'turn';
@@ -1339,7 +1365,7 @@ function sendMessage(){
     queuedNote.innerHTML = `<span style="color:var(--brick)">●</span> No signal — this search is queued and will run automatically the moment you're back online.`;
     turnEl.appendChild(queuedNote);
     scrollToBottom();
-    pendingQueue.push({ text, turnEl, typingEl: queuedNote, threadId });
+    pendingQueue.push({ text, turnEl, typingEl: queuedNote, threadId, actingUsername });
     return;
   }
 
@@ -1359,31 +1385,32 @@ function sendMessage(){
         errNote.innerHTML = `<span style="color:var(--brick)">●</span> Couldn't reach any live data source right now — showing demo data instead.`;
         turnEl.appendChild(errNote);
       }
-      finishTurn(turnEl, threadId, text, response, label);
+      finishTurn(turnEl, threadId, text, response, label, actingUsername);
     });
     return;
   }
 
   setTimeout(async ()=>{
     typing.remove();
-    finishTurn(turnEl, threadId, text, await runSearch(text));
+    finishTurn(turnEl, threadId, text, await runSearch(text), undefined, actingUsername);
   }, 650);
 }
 
-function finishTurn(turnEl, threadId, query, response, sourceLabel){
+function finishTurn(turnEl, threadId, query, response, sourceLabel, actingUsername){
   const block = buildAssistantBlock(response, true, sourceLabel);
   if(threadId === currentThreadId){
     turnEl.appendChild(block);
     scrollToBottom();
   }
-  persistTurn(query, response, threadId);
+  persistTurn(query, response, threadId, actingUsername, !!sourceLabel);
 }
 
 function buildAssistantBlock(response, animate, sourceLabel){
   const block = document.createElement('div');
   block.className = 'assistant-block';
+  const droppedList = response.droppedFilters || [];
   const fallbackHtml = response.fellBack
-    ? `<div class="fallback-note">Nothing matched every filter exactly, so here's a broader shortlist to work from — try loosening the age or budget constraint for a tighter match.</div>`
+    ? `<div class="fallback-note">${droppedList.length ? `No exact match, so ${droppedList.join(' and ')} ${droppedList.length>1?'were':'was'} relaxed to find these — the filters above now reflect what's actually applied.` : `Nothing matched at all — showing the full pool as a starting point.`}</div>`
     : '';
   const sourceHtml = sourceLabel
     ? `<div class="fallback-note" style="color:var(--sage); border-color:rgba(95,165,122,.35); background:rgba(95,165,122,.08);">${sourceLabel}</div>`
@@ -1413,6 +1440,7 @@ function buildAssistantBlock(response, animate, sourceLabel){
       <div class="add-filter-row" data-field="ageMax"><label>Max age</label><input type="number" min="6" max="50" placeholder="e.g. 23"></div>
       <div class="add-filter-row" data-field="budgetMax"><label>Max budget (£M)</label><input type="number" min="0" step="0.1" placeholder="e.g. 2"></div>
       <div class="add-filter-row" data-field="gbeReq"><label class="add-filter-check"><input type="checkbox"> GBE eligible only</label></div>
+      <div class="auth-error add-filter-error"></div>
       <button class="add-filter-apply">Apply</button>
     </div>
     <div class="results-meta"><div class="results-count"></div>
@@ -1475,15 +1503,29 @@ function buildAssistantBlock(response, animate, sourceLabel){
 
   block.querySelector('.add-filter-apply').onclick = async ()=>{
     const panel = block.querySelector('.add-filter-panel');
+    const errEl = panel.querySelector('.add-filter-error');
+    errEl.textContent = '';
     const posVal = panel.querySelector('[data-field="position"] select').value;
     const ageVal = panel.querySelector('[data-field="ageMax"] input').value;
     const budgetVal = panel.querySelector('[data-field="budgetMax"] input').value;
     const gbeVal = panel.querySelector('[data-field="gbeReq"] input').checked;
 
+    // DEF-13: same sanity bounds the NL parser already enforces — a filter that can't possibly
+    // match anyone (age 0, negative budget) shouldn't be silently accepted here.
+    let parsedAge = null, parsedBudget = null;
+    if(ageVal){
+      parsedAge = parseInt(ageVal,10);
+      if(isNaN(parsedAge) || parsedAge < 6 || parsedAge > 50){ errEl.textContent = 'Age must be between 6 and 50.'; return; }
+    }
+    if(budgetVal){
+      parsedBudget = parseFloat(budgetVal);
+      if(isNaN(parsedBudget) || parsedBudget <= 0){ errEl.textContent = 'Budget must be a positive number.'; return; }
+    }
+
     const newParsed = {...currentParsed};
     if(posVal) newParsed.position = posVal;
-    if(ageVal) newParsed.ageMax = parseInt(ageVal,10);
-    if(budgetVal) newParsed.budgetMax = parseFloat(budgetVal);
+    if(parsedAge !== null) newParsed.ageMax = parsedAge;
+    if(parsedBudget !== null) newParsed.budgetMax = parsedBudget;
     if(gbeVal) newParsed.gbeReq = true;
     newParsed.filters = rebuildFiltersDisplay(newParsed);
 
@@ -1600,16 +1642,16 @@ function ensureThreadId(seedQuery){
   return currentThreadId;
 }
 
-function persistTurn(query, response, threadId){
+function persistTurn(query, response, threadId, actingUsername, wasLive){
   const now = Date.now();
   let th = threads.find(t=>t.id===threadId);
   if(!th){
     th = { id: threadId, title: query.length>42 ? query.slice(0,42)+'…' : query, createdAt: now, updatedAt: now, turns: [] };
     threads.push(th);
   }
-  th.turns.push({ query, response, ts: now });
+  th.turns.push({ query, response, ts: now, wasLive: !!wasLive });
   th.updatedAt = now;
-  saveThreads();
+  saveThreads(actingUsername);
   renderDrawer();
 }
 
@@ -1709,6 +1751,15 @@ document.getElementById('test-sources-btn').onclick = async function(){
   resultsEl.innerHTML = '';
 
   const tests = [
+    { name: 'Storage (set/get round-trip)', run: async ()=>{
+      const testKey = 'recon-diagnostic-test key'; // deliberately contains a space — this is exactly the class of bug (a club name like "Preston North End" in a storage key) that broke login for most clubs before it was fixed. If this fails, that bug is back.
+      const testVal = 'ok-' + Date.now();
+      const setOk = await kvSet(testKey, testVal);
+      if(!setOk) throw new Error('kvSet failed for a key containing a space — this is the exact bug class that broke login for multi-word club names.');
+      const got = await kvGet(testKey);
+      if(got !== testVal) throw new Error(`kvGet returned "${got}", expected "${testVal}" — write succeeded but read-back didn't match.`);
+      return { ok: true };
+    }},
     { name: 'StatsBomb (match data)', run: ()=> loadLiveData() },
     { name: 'openfootball (club form)', run: ()=> loadOpenfootball() },
     { name: 'football-data.org (standings)', run: ()=> loadFootballData() },
@@ -1724,7 +1775,8 @@ document.getElementById('test-sources-btn').onclick = async function(){
     try{
       const result = await t.run();
       let detail = 'Reachable and returned data.';
-      if(Array.isArray(result)) detail = `Reachable — ${result.length} item(s) returned.`;
+      if(result && result.ok) detail = 'Write and read-back both succeeded, including a space in the key.';
+      else if(Array.isArray(result)) detail = `Reachable — ${result.length} item(s) returned.`;
       else if(result && typeof result === 'object' && result.players) detail = `Reachable — ${result.players.length} player(s).`;
       else if(result && typeof result === 'object') detail = `Reachable — ${Object.keys(result).length} key(s) in response.`;
       row.querySelector('.diag-dot').className = 'diag-dot ok';
@@ -1780,7 +1832,7 @@ function resolveQueuedTurn(q){
       q.turnEl.appendChild(block);
       scrollToBottom();
     }
-    persistTurn(q.text, response, q.threadId);
+    persistTurn(q.text, response, q.threadId, q.actingUsername, !!sourceLabel);
   };
 
   if(liveMode){
@@ -1813,9 +1865,12 @@ let invites = {};     // holds ONLY the club being actively checked (activation)
 let emailIndex = {};  // { [email]: club } — lets login route to the right club's store without exposing it
 let currentUser = null;
 
-function accountsKeyFor(club){ return "recon-accounts-v1:" + club; }
-function invitesKeyFor(club){ return "recon-invites-v1:" + club; }
-function permissionsKeyFor(club){ return "recon-permissions-v1:" + club; }
+function slugifyClub(club){
+  return String(club).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+function accountsKeyFor(club){ return "recon-accounts-v1:" + slugifyClub(club); }
+function invitesKeyFor(club){ return "recon-invites-v1:" + slugifyClub(club); }
+function permissionsKeyFor(club){ return "recon-permissions-v1:" + slugifyClub(club); }
 
 function randomSaltHex(){
   const arr = new Uint8Array(16);
@@ -1823,9 +1878,9 @@ function randomSaltHex(){
   return Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 function generateInviteCode(){
-  const arr = new Uint8Array(5);
+  const arr = new Uint8Array(4); // 4 bytes = exactly 8 hex chars, no generated entropy discarded
   crypto.getRandomValues(arr);
-  return Array.from(arr).map(b=>b.toString(16).toUpperCase().padStart(2,'0')).join('').slice(0,8);
+  return Array.from(arr).map(b=>b.toString(16).toUpperCase().padStart(2,'0')).join('');
 }
 async function hashPassword(password, saltHex){
   const data = new TextEncoder().encode(saltHex + ':' + password);
@@ -1905,7 +1960,14 @@ const DEMO_ADMIN_USERNAME = "dan.kelly@birmingham.co.uk";
 const DEMO_ADMIN_PASSWORD = "dan&Ben";
 const DEMO_ADMIN_CLUB = "Birmingham City";
 async function seedDemoAdminIfNeeded(){
-  if(emailIndex[DEMO_ADMIN_USERNAME]) return;
+  if(emailIndex[DEMO_ADMIN_USERNAME]){
+    // Don't trust the email-index entry alone — verify the account record actually exists.
+    // A prior run could have written the (unscoped, always-safe) index entry successfully
+    // while the actual account write silently failed, which would otherwise permanently
+    // mask a real seeding failure (this was DEF-01's root cause).
+    const existing = await loadAccountsForClub(DEMO_ADMIN_CLUB);
+    if(existing[DEMO_ADMIN_USERNAME]) return;
+  }
   const clubAccounts = await loadAccountsForClub(DEMO_ADMIN_CLUB);
   if(clubAccounts[DEMO_ADMIN_USERNAME]) { emailIndex[DEMO_ADMIN_USERNAME] = DEMO_ADMIN_CLUB; await saveEmailIndex(); return; }
   const salt = randomSaltHex();
@@ -1914,7 +1976,8 @@ async function seedDemoAdminIfNeeded(){
     username: DEMO_ADMIN_USERNAME, displayName: "Dan Kelly",
     club: DEMO_ADMIN_CLUB, role: "Admin", salt, hash, createdAt: Date.now()
   };
-  await saveAccounts(DEMO_ADMIN_CLUB);
+  const ok = await saveAccounts(DEMO_ADMIN_CLUB);
+  if(!ok){ console.error('Recon: failed to seed demo admin account — storage write failed'); return; }
   emailIndex[DEMO_ADMIN_USERNAME] = DEMO_ADMIN_CLUB;
   await saveEmailIndex();
 }
@@ -1960,7 +2023,17 @@ async function renderTeamView(){
   pending.forEach(inv=>{
     const row = document.createElement('div');
     row.className = 'team-row';
-    row.innerHTML = `<div class="tm-mid"><div class="tm-name">${inv.displayName}</div><div class="tm-sub">${inv.email} · ${inv.role} · code ${inv.code}</div></div>`;
+    const mid = document.createElement('div');
+    mid.className = 'tm-mid';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'tm-name';
+    nameEl.textContent = inv.displayName; // DEF-02: textContent, never innerHTML, for user-supplied text
+    const subEl = document.createElement('div');
+    subEl.className = 'tm-sub';
+    subEl.textContent = `${inv.email} · ${inv.role} · code ${inv.code}`;
+    mid.appendChild(nameEl);
+    mid.appendChild(subEl);
+    row.appendChild(mid);
     pendingWrap.appendChild(row);
   });
 
@@ -1970,14 +2043,31 @@ async function renderTeamView(){
     const row = document.createElement('div');
     row.className = 'team-row';
     const isSelf = m.username === currentUser.username;
-    row.innerHTML = `<div class="tm-mid"><div class="tm-name">${m.displayName}</div><div class="tm-sub">${m.username} · ${m.role}</div></div>`;
+    const mid = document.createElement('div');
+    mid.className = 'tm-mid';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'tm-name';
+    nameEl.textContent = m.displayName; // DEF-02: textContent, never innerHTML
+    const subEl = document.createElement('div');
+    subEl.className = 'tm-sub';
+    subEl.textContent = `${m.username} · ${m.role}`;
+    mid.appendChild(nameEl);
+    mid.appendChild(subEl);
+    row.appendChild(mid);
     if(!isSelf){
       if(m.role !== 'Admin'){
         const promoteBtn = document.createElement('button');
         promoteBtn.className = 'btn-ghost-sm';
         promoteBtn.textContent = 'Make Admin';
         promoteBtn.style.marginRight = '6px';
+        promoteBtn.dataset.confirming = 'false';
         promoteBtn.onclick = async ()=>{
+          if(promoteBtn.dataset.confirming !== 'true'){ // DEF-10: confirm-before-promote, same pattern as Revoke
+            promoteBtn.dataset.confirming = 'true';
+            promoteBtn.textContent = 'Confirm?';
+            setTimeout(()=>{ if(promoteBtn.isConnected){ promoteBtn.dataset.confirming='false'; promoteBtn.textContent='Make Admin'; } }, 3000);
+            return;
+          }
           m.role = 'Admin';
           accounts[m.username] = m;
           await saveAccounts();
@@ -2040,19 +2130,31 @@ document.getElementById('invite-submit').onclick = async ()=>{
   errEl.textContent = '';
 
   if(!name || !email){ errEl.textContent = 'Enter a name and work email.'; return; }
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ errEl.textContent = 'Enter a valid email address.'; return; }
+  if(!/^[^\s@<>"'/\\]+@[^\s@<>"'/\\]+\.[^\s@<>"'/\\]+$/.test(email)){ errEl.textContent = 'Enter a valid email address.'; return; } // DEF-02: reject HTML-breaking characters
   if(accounts[email]){ errEl.textContent = 'That person already has an account.'; return; }
   const existingInvite = Object.values(invites).find(i=> i.email === email && !i.used);
   if(existingInvite){ errEl.textContent = 'An invite is already pending for that email.'; return; }
 
-  const code = generateInviteCode();
+  let code = generateInviteCode();
+  while(invites[code]) code = generateInviteCode(); // DEF-14: guarantee no collision, however unlikely
   invites[code] = { code, email, displayName: name, role, club: currentUser.club, invitedBy: currentUser.username, used: false, createdAt: Date.now() };
   await saveInvites();
 
   document.getElementById('invite-name').value = '';
   document.getElementById('invite-email').value = '';
-  document.getElementById('invite-code-result').innerHTML =
-    `<div class="auth-code-box"><div class="lbl">Demo mode — this would be emailed to ${email}</div><div class="code">${code}</div></div>`;
+  const resultEl = document.getElementById('invite-code-result');
+  resultEl.innerHTML = '';
+  const box = document.createElement('div');
+  box.className = 'auth-code-box';
+  const lbl = document.createElement('div');
+  lbl.className = 'lbl';
+  lbl.textContent = `Demo mode — this would be emailed to ${email}`; // DEF-02: textContent, even though regex now blocks HTML chars — defense in depth
+  const codeEl = document.createElement('div');
+  codeEl.className = 'code';
+  codeEl.textContent = code;
+  box.appendChild(lbl);
+  box.appendChild(codeEl);
+  resultEl.appendChild(box);
   renderTeamView();
 };
 
