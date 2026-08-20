@@ -319,7 +319,7 @@
         <div class="composer-wrap">
           <div class="starter-chips" id="starter-chips">
             <div class="ex-chip" data-q="CBs, most aerial duels won per 90, GBE eligible">CBs — aerial duels, GBE eligible</div>
-            <div class="ex-chip" data-q="Strikers underperforming their xG this season">Strikers underperforming xG</div>
+            <div class="ex-chip" data-q="Strikers overperforming their xG this season">Strikers overperforming xG</div>
             <div class="ex-chip" data-q="Wingers with the most key passes, under 23">Wingers, key passes, under 23</div>
             <div class="ex-chip" data-q="Full backs I can afford for £2 million">Full backs, budget £2M</div>
           </div>
@@ -475,13 +475,25 @@
    behavior stays stable, this isn't re-randomized on every page visit. All names are
    generated from generic name-part banks, not real people. */
 
-const GEN_CLUBS = [
-  "Preston North End","Leeds United","Crewe Alexandra","Rangers","PSV Eindhoven",
-  "Sunderland","Middlesbrough","Norwich City","Sheffield United","West Bromwich Albion",
-  "Coventry City","Bristol City","Watford","Hull City","Millwall","Swansea City",
-  "Cardiff City","Stoke City","Blackburn Rovers","Derby County","Luton Town",
-  "Oxford United","Sheffield Wednesday","Portsmouth"
+const GEN_CLUBS_BY_LEAGUE = {
+  Championship: ["Preston North End","Leeds United","Sunderland","Middlesbrough","Norwich City","Sheffield United","West Bromwich Albion","Coventry City","Bristol City","Watford","Hull City","Millwall","Swansea City","Cardiff City","Stoke City","Blackburn Rovers","Derby County","Luton Town","Oxford United","Sheffield Wednesday","Portsmouth"],
+  "League One": ["Wrexham","Bolton Wanderers","Barnsley","Peterborough United"],
+  "League Two": ["Crewe Alexandra","Notts County","Walsall","Doncaster Rovers"],
+  "Scottish Premiership": ["Rangers","Celtic","Hearts","Aberdeen"],
+  Eredivisie: ["PSV Eindhoven","Ajax","Feyenoord","AZ Alkmaar"],
+};
+const GEN_CLUBS = Object.values(GEN_CLUBS_BY_LEAGUE).flat();
+const CLUB_LEAGUE = {};
+for(const [league, clubs] of Object.entries(GEN_CLUBS_BY_LEAGUE)) clubs.forEach(c=> CLUB_LEAGUE[c] = league);
+
+const LEAGUE_MAP = [ // matched against free text, same pattern as POS_MAP
+  [/championship/i, "Championship"],
+  [/league\s?one|league\s?1\b|\bl1\b/i, "League One"],
+  [/league\s?two|league\s?2\b|\bl2\b/i, "League Two"],
+  [/scottish( premiership)?|spfl/i, "Scottish Premiership"],
+  [/eredivisie|dutch (top flight|league)/i, "Eredivisie"],
 ];
+
 const GEN_POSITIONS = ["CB","FB","WG","ST","CM"];
 const GEN_PLAYERS_PER_SLOT = 2; // per club, per position — raise this for an even bigger pool
 
@@ -517,11 +529,26 @@ function rngBetween(rng, min, max, decimals){
 const GEN_STAT_RANGES = {
   CB: (rng)=>({ aerial:rngBetween(rng,4.6,6.2,1), passAcc:rngBetween(rng,74,89), interceptions:rngBetween(rng,1.5,2.6,1), tackles:rngBetween(rng,2.0,3.0,1), xg:rngBetween(rng,0,0.03,2), goals:0, sot:0, turnovers:rngBetween(rng,0.5,1.2,1), keyPasses:rngBetween(rng,0,0.3,1) }),
   FB: (rng)=>({ tackles:rngBetween(rng,2.6,3.3,1), passAcc:rngBetween(rng,75,86), interceptions:rngBetween(rng,1.4,2.0,1), keyPasses:rngBetween(rng,0.8,1.4,1), aerial:rngBetween(rng,1.0,1.7,1), xg:rngBetween(rng,0.01,0.03,2), goals:0, sot:rngBetween(rng,0,2) }),
-  WG: (rng)=>({ keyPasses:rngBetween(rng,1.7,2.7,1), dribbles:rngBetween(rng,2.3,3.7,1), passAcc:rngBetween(rng,73,82), xg:rngBetween(rng,0.16,0.23,2), goals:rngBetween(rng,0.10,0.15,2), sot:rngBetween(rng,14,19), turnovers:rngBetween(rng,1.2,2.2,1), aerial:rngBetween(rng,0.4,0.7,1), interceptions:rngBetween(rng,0.1,0.3,1) }),
-  ST: (rng)=>({ xg:rngBetween(rng,0.44,0.62,2), goals:rngBetween(rng,0.19,0.32,2), sot:rngBetween(rng,30,40), turnovers:rngBetween(rng,1.1,1.7,1), aerial:rngBetween(rng,1.7,2.5,1), passAcc:rngBetween(rng,60,72), keyPasses:rngBetween(rng,0.5,1.0,1), interceptions:rngBetween(rng,0.1,0.3,1) }),
-  CM: (rng)=>({ passAcc:rngBetween(rng,78,88), keyPasses:rngBetween(rng,1.3,2.2,1), interceptions:rngBetween(rng,1.5,2.4,1), tackles:rngBetween(rng,1.9,2.7,1), xg:rngBetween(rng,0.04,0.09,2), goals:rngBetween(rng,0.02,0.06,2), sot:rngBetween(rng,3,6), turnovers:rngBetween(rng,0.7,1.5,1), aerial:rngBetween(rng,0.9,1.3,1) }),
+  WG: (rng)=>{ const xg=rngBetween(rng,0.12,0.26,2); const goals=Math.max(0, Math.round((xg+rngBetween(rng,-0.09,0.09,2))*100)/100); return { keyPasses:rngBetween(rng,1.7,2.7,1), dribbles:rngBetween(rng,2.3,3.7,1), passAcc:rngBetween(rng,73,82), xg, goals, sot:rngBetween(rng,14,19), turnovers:rngBetween(rng,1.2,2.2,1), aerial:rngBetween(rng,0.4,0.7,1), interceptions:rngBetween(rng,0.1,0.3,1) }; },
+  ST: (rng)=>{ const xg=rngBetween(rng,0.35,0.65,2); const goals=Math.max(0, Math.round((xg+rngBetween(rng,-0.18,0.18,2))*100)/100); return { xg, goals, sot:rngBetween(rng,30,40), turnovers:rngBetween(rng,1.1,1.7,1), aerial:rngBetween(rng,1.7,2.5,1), passAcc:rngBetween(rng,60,72), keyPasses:rngBetween(rng,0.5,1.0,1), interceptions:rngBetween(rng,0.1,0.3,1) }; },
+  CM: (rng)=>{ const xg=rngBetween(rng,0.03,0.10,2); const goals=Math.max(0, Math.round((xg+rngBetween(rng,-0.04,0.04,2))*100)/100); return { passAcc:rngBetween(rng,78,88), keyPasses:rngBetween(rng,1.3,2.2,1), interceptions:rngBetween(rng,1.5,2.4,1), tackles:rngBetween(rng,1.9,2.7,1), xg, goals, sot:rngBetween(rng,3,6), turnovers:rngBetween(rng,0.7,1.5,1), aerial:rngBetween(rng,0.9,1.3,1) }; },
 };
 const GEN_VALUE_RANGE = { CB:[0.4,4.8], FB:[0.3,2.2], WG:[0.5,3.2], ST:[0.7,5.5], CM:[0.5,2.7] };
+
+const GEN_SEASONS = [2022, 2023, 2024];
+
+function generateSeasonStats(seed, pos, ageAtSeason){
+  const rng = seededRng(seed);
+  const s = GEN_STAT_RANGES[pos](rng);
+  s.appearances = rngBetween(rng, 18, 38);
+  s.minutes = s.appearances * rngBetween(rng, 65, 90);
+  s.rating = rngBetween(rng, 6.2, 7.7, 2);
+  s.assists = rngBetween(rng, 0, 8);
+  s.yellowCards = rngBetween(rng, 0, 9);
+  s.redCards = rng() < 0.1 ? 1 : 0;
+  s.duelsWon = rngBetween(rng, 2.3, 6.2, 1);
+  return { age: ageAtSeason, s };
+}
 
 function generatePool(){
   const pool = [];
@@ -532,19 +559,24 @@ function generatePool(){
         const rng = seededRng(seed);
         const initial = GEN_INITIALS[Math.floor(rng()*GEN_INITIALS.length)];
         const surname = GEN_SURNAMES[Math.floor(rng()*GEN_SURNAMES.length)];
-        const age = rngBetween(rng, 18, 32);
+        const ageIn2024 = rngBetween(rng, 18, 32);
         const [vMin,vMax] = GEN_VALUE_RANGE[pos];
         const value = rngBetween(rng, vMin, vMax, 2);
         const gbe = rng() > 0.35;
-        const s = GEN_STAT_RANGES[pos](rng);
-        s.appearances = rngBetween(rng, 18, 38);
-        s.minutes = s.appearances * rngBetween(rng, 65, 90);
-        s.rating = rngBetween(rng, 6.2, 7.7, 2);
-        s.assists = rngBetween(rng, 0, 8);
-        s.yellowCards = rngBetween(rng, 0, 9);
-        s.redCards = rng() < 0.1 ? 1 : 0;
-        s.duelsWon = rngBetween(rng, 2.3, 6.2, 1);
-        pool.push({ name: `${initial}. ${surname}`, club, age, pos, value, gbe, s });
+
+        // Real per-season stat variants — a different (but stable, seeded) stat line and a
+        // younger age for each earlier season, not just one snapshot relabeled three times.
+        const seasons = {};
+        GEN_SEASONS.forEach(year=>{
+          const yearsBack = 2024 - year;
+          seasons[year] = generateSeasonStats(`${seed}-${year}`, pos, Math.max(ageIn2024 - yearsBack, 15));
+        });
+
+        pool.push({
+          name: `${initial}. ${surname}`, club, league: CLUB_LEAGUE[club] || null,
+          age: seasons[2024].age, pos, value, gbe, s: seasons[2024].s, // default view = most recent season
+          seasons,
+        });
       }
     });
   });
@@ -562,14 +594,16 @@ const POS_MAP = [
 ];
 
 const METRIC_MAP = [
-  {test:/aerial/i, key:"aerial", label:"Aerial duels won/90", dir:-1},
-  {test:/xg|expected goals|underperform/i, key:"__xgdiff", label:"Goals minus xG", dir:1},
-  {test:/pass(ing)? accuracy|passing%/i, key:"passAcc", label:"Pass accuracy", dir:-1},
-  {test:/turnover/i, key:"turnovers", label:"Turnovers/90", dir:1},
-  {test:/key pass|creativ|chance creation/i, key:"keyPasses", label:"Key passes/90", dir:-1},
-  {test:/tackl|defensive action/i, key:"tackles", label:"Tackles/90", dir:-1},
-  {test:/dribbl/i, key:"dribbles", label:"Successful dribbles/90", dir:-1},
-  {test:/interception/i, key:"interceptions", label:"Interceptions/90", dir:-1},
+  {test:/aerial/i, key:"aerial", label:"Aerial duels won/90 — Top range", dir:-1},
+  {test:/underperform|below (their |expected )?xg|worse than (their |expected )?xg|low xg|struggling.*xg/i, key:"xgdiff_under", label:"Goals minus xG — Underperforming", dir:1},
+  {test:/overperform|outperform|above (their |expected )?xg|beating (their |the )?xg|better than (their |expected )?xg|high(er)? performance xg|high xg performance|clinical/i, key:"xgdiff_over", label:"Goals minus xG — Overperforming", dir:-1},
+  {test:/xg|expected goals/i, key:"xg", label:"xG (expected goals) — Top range", dir:-1}, // bare mention, no direction implied — rank by raw xG value, not the diff
+  {test:/pass(ing)? accuracy|passing%/i, key:"passAcc", label:"Pass accuracy — Top range", dir:-1},
+  {test:/turnover/i, key:"turnovers", label:"Turnovers/90 — Fewest first", dir:1},
+  {test:/key pass|creativ|chance creation/i, key:"keyPasses", label:"Key passes/90 — Top range", dir:-1},
+  {test:/tackl|defensive action/i, key:"tackles", label:"Tackles/90 — Top range", dir:-1},
+  {test:/dribbl/i, key:"dribbles", label:"Successful dribbles/90 — Top range", dir:-1},
+  {test:/interception/i, key:"interceptions", label:"Interceptions/90 — Top range", dir:-1},
 ];
 
 function parseQuery(text){
@@ -580,14 +614,37 @@ function parseQuery(text){
 
   let metric = null;
   for(const m of METRIC_MAP){ if(m.test.test(text)){ metric = m; break; } }
-  if(metric) filters.push({t:"Metric", v: metric.label + (metric.key==="__xgdiff" ? " — underperforming" : " — Top range")});
+  if(metric) filters.push({t:"Metric", v: metric.label}); // label is now fully self-describing, no hardcoded suffix appended here
 
   let ageMax = null;
   const ageMatch = text.match(/under\s?(\d{1,2})|u(\d{1,2})\b|below\s?(\d{1,2})/i);
   if(ageMatch){
     const parsedAge = parseInt(ageMatch[1]||ageMatch[2]||ageMatch[3],10);
-    if(parsedAge >= 6 && parsedAge <= 50){ ageMax = parsedAge; filters.push({t:"Age", v:"Under "+ageMax}); }
+    if(parsedAge >= 6 && parsedAge <= 50){ ageMax = parsedAge; }
   }
+
+  let ageMin = null;
+  const ageMinMatch = text.match(/over\s?(\d{1,2})|above\s?(\d{1,2})|at least\s?(\d{1,2})|(\d{1,2})\s?\+|aged\s?(\d{1,2})\s?(and|or)?\s?(above|over|older)/i);
+  if(ageMinMatch){
+    const parsedAgeMin = parseInt(ageMinMatch[1]||ageMinMatch[2]||ageMinMatch[3]||ageMinMatch[4]||ageMinMatch[5],10);
+    if(parsedAgeMin >= 6 && parsedAgeMin <= 50) ageMin = parsedAgeMin;
+  }
+
+  let season = null;
+  const yearMatch = text.match(/\b(2022|2023|2024)\b/);
+  if(yearMatch) season = parseInt(yearMatch[1],10);
+  else if(/this season|current season|\b2024\/25\b/i.test(text)) season = 2024;
+  else if(/last season|previous season|\b2023\/24\b/i.test(text)) season = 2023;
+  else if(/two seasons ago|\b2022\/23\b/i.test(text)) season = 2022;
+  if(season) filters.push({t:"Season", v:String(season)});
+
+  if(ageMin && ageMax) filters.push({t:"Age", v:ageMin+"–"+ageMax});
+  else if(ageMax) filters.push({t:"Age", v:"Under "+ageMax});
+  else if(ageMin) filters.push({t:"Age", v:ageMin+"+"});
+
+  let league = null;
+  for(const [re,code] of LEAGUE_MAP){ if(re.test(text)){ league = code; break; } }
+  if(league) filters.push({t:"League", v:league});
 
   let budgetMax = null;
   const cleanText = text.replace(/,/g, '');
@@ -608,7 +665,7 @@ function parseQuery(text){
   const gbeReq = /\bgbe\b|work permit|\besc\b|\bvisa\b/i.test(text); // DEF-06: removed bare "eligib" — was matching unrelated "eligible for..." phrases
   if(gbeReq) filters.push({t:"Eligibility", v:"GBE eligible", gbe:true});
 
-  return {position, metric, ageMax, budgetMax, gbeReq, filters};
+  return {position, metric, ageMin, ageMax, league, season, budgetMax, gbeReq, filters};
 }
 
 /* ---------------- Real NLQ layer (LLM-based), regex above kept as automatic fallback ---------------- */
@@ -627,8 +684,11 @@ async function parseQueryAI(text){
 Respond with ONLY a JSON object, no other text, no markdown fences, in exactly this shape:
 {
   "position": one of "CB" (centre-back), "FB" (full-back), "WG" (winger), "ST" (striker/forward), "CM" (central midfielder), "DEF" (defender, unspecified CB or FB), or null,
-  "metric": one of ${JSON.stringify(NLQ_METRIC_KEYS)}, or null — pick whichever the query is asking to rank/filter by, matching intent even if worded very differently (e.g. "who wins the ball in the air most" means "aerial"; "underachieving strikers" or "should be scoring more" means "__xgdiff"),
+  "metric": one of ${JSON.stringify(NLQ_METRIC_KEYS)}, or null — pick whichever the query is asking to rank/filter by, matching intent even if worded very differently. Examples: "who wins the ball in the air most" means "aerial"; "underachieving strikers" or "should be scoring more" or "wasteful in front of goal" means "xgdiff_under" (ranked worst-first); "high performance xG", "clinical finishers", "beating their xG", "outperforming expected goals" means "xgdiff_over" (ranked best-first, the OPPOSITE of xgdiff_under — do not confuse these two); a bare mention of "xG" or "expected goals" with no under/over/high/low qualifier means "xg" (ranked by raw xG value, highest first),
+  "ageMin": a number (the minimum age mentioned, e.g. "over 30" or "aged 25+"), or null,
   "ageMax": a number (the maximum age mentioned), or null,
+  "league": one of "Championship", "League One", "League Two", "Scottish Premiership", "Eredivisie", or null,
+  "season": one of 2022, 2023, 2024 (the specific year being asked about — "last season" means 2023, "this season"/"current" means 2024, "two seasons ago" means 2022, an explicit year mentioned means that year), or null if no season is specified,
   "budgetMaxM": a number in millions of pounds (convert any currency/format mentioned into this), or null,
   "gbeRequired": true only if the query explicitly asks about visa/work-permit/GBE/ESC eligibility, else false
 }`;
@@ -656,10 +716,20 @@ Respond with ONLY a JSON object, no other text, no markdown fences, in exactly t
   if(position) filters.push({t:"Position", v:{CB:"Centre-Back",FB:"Full-Back",WG:"Winger",ST:"Striker",CM:"Midfielder",DEF:"Defender (CB or FB)"}[position]});
 
   const metric = METRIC_MAP.find(m=>m.key===parsed.metric) || null;
-  if(metric) filters.push({t:"Metric", v: metric.label + (metric.key==="__xgdiff" ? " — underperforming" : " — Top range")});
+  if(metric) filters.push({t:"Metric", v: metric.label});
 
+  const ageMin = (typeof parsed.ageMin === 'number' && parsed.ageMin >= 6 && parsed.ageMin <= 50) ? parsed.ageMin : null;
   const ageMax = (typeof parsed.ageMax === 'number' && parsed.ageMax >= 6 && parsed.ageMax <= 50) ? parsed.ageMax : null;
-  if(ageMax) filters.push({t:"Age", v:"Under "+ageMax});
+  if(ageMin && ageMax) filters.push({t:"Age", v:ageMin+"–"+ageMax});
+  else if(ageMax) filters.push({t:"Age", v:"Under "+ageMax});
+  else if(ageMin) filters.push({t:"Age", v:ageMin+"+"});
+
+  const VALID_LEAGUES = ["Championship","League One","League Two","Scottish Premiership","Eredivisie"];
+  const league = VALID_LEAGUES.includes(parsed.league) ? parsed.league : null;
+  if(league) filters.push({t:"League", v:league});
+
+  const season = [2022,2023,2024].includes(parsed.season) ? parsed.season : null;
+  if(season) filters.push({t:"Season", v:String(season)});
 
   const budgetMax = typeof parsed.budgetMaxM === 'number' ? Math.round(parsed.budgetMaxM*100)/100 : null;
   if(budgetMax) filters.push({t:"Budget", v:"≤ £"+budgetMax+"M"});
@@ -667,7 +737,7 @@ Respond with ONLY a JSON object, no other text, no markdown fences, in exactly t
   const gbeReq = !!parsed.gbeRequired;
   if(gbeReq) filters.push({t:"Eligibility", v:"GBE eligible", gbe:true});
 
-  return {position, metric, ageMax, budgetMax, gbeReq, filters, _viaAI:true};
+  return {position, metric, ageMin, ageMax, league, season, budgetMax, gbeReq, filters, _viaAI:true};
 }
 
 let nlqAIFailed = false; // once it fails once (e.g. not in claude.ai preview), stop retrying every query — just use regex
@@ -685,46 +755,56 @@ async function parseQuerySmart(text){
 function rebuildFiltersDisplay(parsed){
   const filters = [];
   if(parsed.position) filters.push({t:"Position", v:{CB:"Centre-Back",FB:"Full-Back",WG:"Winger",ST:"Striker",CM:"Midfielder",DEF:"Defender (CB or FB)"}[parsed.position]});
-  if(parsed.metric) filters.push({t:"Metric", v: parsed.metric.label + (parsed.metric.key==="__xgdiff" ? " — underperforming" : " — Top range")});
-  if(parsed.ageMax) filters.push({t:"Age", v:"Under "+parsed.ageMax});
+  if(parsed.metric) filters.push({t:"Metric", v: parsed.metric.label});
+  if(parsed.ageMin && parsed.ageMax) filters.push({t:"Age", v:parsed.ageMin+"–"+parsed.ageMax});
+  else if(parsed.ageMax) filters.push({t:"Age", v:"Under "+parsed.ageMax});
+  else if(parsed.ageMin) filters.push({t:"Age", v:parsed.ageMin+"+"});
+  if(parsed.league) filters.push({t:"League", v:parsed.league});
+  if(parsed.season) filters.push({t:"Season", v:String(parsed.season)});
   if(parsed.budgetMax) filters.push({t:"Budget", v:"≤ £"+parsed.budgetMax+"M"});
   if(parsed.gbeReq) filters.push({t:"Eligibility", v:"GBE eligible", gbe:true});
   return filters;
 }
 
-function applyFilters(position, ageMax, budgetMax, gbeReq){
+function applyFilters(position, ageMin, ageMax, league, budgetMax, gbeReq, season){
   let pool = POOL.slice();
+  if(season) pool = pool.map(p=> (p.seasons && p.seasons[season]) ? {...p, age: p.seasons[season].age, s: p.seasons[season].s} : p); // swap to that season's age/stats before anything else filters or sorts on them
   if(position) pool = pool.filter(p=> position==="DEF" ? (p.pos==="CB"||p.pos==="FB") : p.pos===position);
+  if(ageMin) pool = pool.filter(p=>p.age>=ageMin);
   if(ageMax) pool = pool.filter(p=>p.age<=ageMax);
+  if(league) pool = pool.filter(p=>p.league===league);
   if(budgetMax) pool = pool.filter(p=>p.value<=budgetMax);
   if(gbeReq) pool = pool.filter(p=>p.gbe===true);
   return pool;
 }
 
 function filterAndSort(parsed){
-  let {position, ageMax, budgetMax, gbeReq} = parsed;
-  let pool = applyFilters(position, ageMax, budgetMax, gbeReq);
+  let {position, ageMin, ageMax, league, budgetMax, gbeReq, season} = parsed;
+  let pool = applyFilters(position, ageMin, ageMax, league, budgetMax, gbeReq, season);
   let fellBack = false;
   const droppedFilters = [];
 
   if(pool.length===0){
     fellBack = true;
-    // DEF-04: loosen ONE constraint at a time (budget, then age, then GBE — position kept
-    // longest) instead of discarding everything. Whatever's dropped here is actually removed
-    // from the filters shown, so the chip row never claims a constraint is active when it isn't.
-    if(budgetMax){ budgetMax = null; droppedFilters.push('Budget'); pool = applyFilters(position, ageMax, budgetMax, gbeReq); }
-    if(pool.length===0 && ageMax){ ageMax = null; droppedFilters.push('Age'); pool = applyFilters(position, ageMax, budgetMax, gbeReq); }
-    if(pool.length===0 && gbeReq){ gbeReq = false; droppedFilters.push('Eligibility'); pool = applyFilters(position, ageMax, budgetMax, gbeReq); }
-    if(pool.length===0 && position){ position = null; droppedFilters.push('Position'); pool = applyFilters(position, ageMax, budgetMax, gbeReq); }
+    // DEF-04: loosen ONE constraint at a time (budget, then age, then league, then GBE —
+    // position kept longest) instead of discarding everything. Whatever's dropped here is
+    // actually removed from the filters shown, so the chip row never claims a constraint is
+    // active when it isn't. Season isn't part of this — every player has data for every season,
+    // so season alone can never be the reason a search comes back empty.
+    if(budgetMax){ budgetMax = null; droppedFilters.push('Budget'); pool = applyFilters(position, ageMin, ageMax, league, budgetMax, gbeReq, season); }
+    if(pool.length===0 && (ageMin || ageMax)){ ageMin = null; ageMax = null; droppedFilters.push('Age'); pool = applyFilters(position, ageMin, ageMax, league, budgetMax, gbeReq, season); }
+    if(pool.length===0 && league){ league = null; droppedFilters.push('League'); pool = applyFilters(position, ageMin, ageMax, league, budgetMax, gbeReq, season); }
+    if(pool.length===0 && gbeReq){ gbeReq = false; droppedFilters.push('Eligibility'); pool = applyFilters(position, ageMin, ageMax, league, budgetMax, gbeReq, season); }
+    if(pool.length===0 && position){ position = null; droppedFilters.push('Position'); pool = applyFilters(position, ageMin, ageMax, league, budgetMax, gbeReq, season); }
   }
 
-  const effectiveParsed = {...parsed, position, ageMax, budgetMax, gbeReq};
+  const effectiveParsed = {...parsed, position, ageMin, ageMax, league, budgetMax, gbeReq, season};
   effectiveParsed.filters = rebuildFiltersDisplay(effectiveParsed);
 
   const sortKey = effectiveParsed.metric ? effectiveParsed.metric.key : null;
   const sortDir = effectiveParsed.metric && effectiveParsed.metric.dir !== undefined ? effectiveParsed.metric.dir : -1;
-  if(sortKey === "__xgdiff"){
-    pool.sort((a,b)=> (a.s.goals-a.s.xg) - (b.s.goals-b.s.xg));
+  if(sortKey === "xgdiff_under" || sortKey === "xgdiff_over"){
+    pool.sort((a,b)=> sortDir * ((a.s.goals-a.s.xg) - (b.s.goals-b.s.xg))); // was hardcoded ascending regardless of direction — this was the actual bug
   } else if(sortKey){
     pool.sort((a,b)=> sortDir * ((a.s[sortKey]||0) - (b.s[sortKey]||0)));
   } else if(canSee('value')){
@@ -736,9 +816,9 @@ function filterAndSort(parsed){
   const totalMatches = pool.length;
   const results = pool.map(p=>{ // ALL matches, not sliced — pagination handles display size, not the search
     let statLabel, statVal;
-    if(sortKey === "__xgdiff"){ statLabel="G−xG/90"; statVal=(p.s.goals-p.s.xg).toFixed(2); }
+    if(sortKey === "xgdiff_under" || sortKey === "xgdiff_over"){ statLabel="G−xG/90"; statVal=(p.s.goals-p.s.xg).toFixed(2); }
     else if(sortKey && p.s[sortKey]!==undefined){
-      statLabel = {aerial:"AER/90",passAcc:"PASS%",turnovers:"TO/90",keyPasses:"KP/90",tackles:"TKL/90",dribbles:"DRB/90",interceptions:"INT/90"}[sortKey] || sortKey;
+      statLabel = {aerial:"AER/90",passAcc:"PASS%",turnovers:"TO/90",keyPasses:"KP/90",tackles:"TKL/90",dribbles:"DRB/90",interceptions:"INT/90",xg:"xG"}[sortKey] || sortKey;
       statVal = sortKey==="passAcc" ? p.s[sortKey]+"%" : p.s[sortKey];
     } else { statLabel="VALUE"; statVal="£"+p.value+"M"; }
     return {...p, statLabel, statVal};
@@ -1146,7 +1226,7 @@ async function realSquadFromParsed(parsed){
   // budget/GBE/most performance metrics have no equivalent in this real-identity-only source
 
   pool = pool.slice().sort((a,b)=> (a.age||99) - (b.age||99));
-  return { total: pool.length, sample: pool.slice(0,3), coarsePosition: !!parsed.position };
+  return { total: pool.length, players: pool, coarsePosition: !!parsed.position }; // full list now, not a 3-sample — merged into main pagination
 }
 
 async function runRealSquadSearch(text){
@@ -1289,6 +1369,23 @@ document.querySelectorAll('.ex-chip').forEach(el=>{
 document.getElementById('send-btn').onclick = sendMessage;
 input.addEventListener('keydown', e=>{ if(e.key==='Enter') sendMessage(); });
 
+/* Merges real-squad players (identity only, no performance stats) into the same results array
+   used for pagination — appended AFTER the stat-sorted illustrative players, so they land on
+   later pages naturally rather than needing a separate section/badge block. Each is tagged
+   isRealNoStats so the card renderer can style it distinctly and skip opening a profile (there's
+   no stat data to show). */
+function mergeRealSquadIntoResults(response){
+  if(!response.realSquad || !response.realSquad.players || response.realSquad.players.length === 0) return;
+  const normalized = response.realSquad.players.map(rp => ({
+    name: rp.name, club: rp.club, age: rp.age, pos: rp.position,
+    value: undefined, gbe: undefined, s: {},
+    isRealNoStats: true, statLabel: 'DATA', statVal: '—',
+  }));
+  const illustrativeCount = response.results.length;
+  response.results = response.results.concat(normalized);
+  response.totalMatches = illustrativeCount + normalized.length;
+}
+
 async function runLiveBlend(text){
   // StatsBomb's free players belong to countries (World Cup squads), not the English/Dutch
   // clubs that openfootball and football-data.org know about — so swapping StatsBomb's
@@ -1307,6 +1404,7 @@ async function runLiveBlend(text){
     realSquadFromParsed(response.parsed), // DEF-08: reuses the parse runSearch already resolved — no second AI call, no risk of the two disagreeing
   ]);
   response.realSquad = realSquad;
+  mergeRealSquadIntoResults(response);
   const squadOk = !!realSquad;
 
   const sourcesOk = [statsbombOk, formOk, standingsOk, teamStatsOk, squadOk].filter(Boolean).length;
@@ -1329,6 +1427,7 @@ async function reRunWithParsed(parsed, wasLive){
     await enrichWithStandings(response.results);
     await enrichWithTeamStats(response.results);
     response.realSquad = await realSquadFromParsed(parsed);
+    mergeRealSquadIntoResults(response);
   }
   return response;
 }
@@ -1430,13 +1529,23 @@ function buildAssistantBlock(response, animate, sourceLabel){
     <div class="filter-chips"></div>
     <div class="add-filter-panel">
       <div class="add-filter-row" data-field="position"><label>Position</label>
-        <select><option value="">— none —</option><option value="CB">Centre-Back</option><option value="FB">Full-Back</option><option value="DEF">Defender (either)</option><option value="WG">Winger</option><option value="CM">Midfielder</option><option value="ST">Striker</option></select>
+        <select><option value="" disabled selected hidden>Position</option><option value="CB">Centre-Back</option><option value="FB">Full-Back</option><option value="DEF">Defender (either)</option><option value="WG">Winger</option><option value="CM">Midfielder</option><option value="ST">Striker</option></select>
       </div>
+      <div class="add-filter-row" data-field="league"><label>League</label>
+        <select><option value="" disabled selected hidden>League</option><option value="Championship">Championship</option><option value="League One">League One</option><option value="League Two">League Two</option><option value="Scottish Premiership">Scottish Premiership</option><option value="Eredivisie">Eredivisie</option></select>
+      </div>
+      <div class="add-filter-row" data-field="season"><label>Season</label>
+        <select><option value="" disabled selected hidden>Season</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option></select>
+      </div>
+      <div class="add-filter-row" data-field="ageMin"><label>Min age</label><input type="number" min="6" max="50" placeholder="e.g. 18"></div>
       <div class="add-filter-row" data-field="ageMax"><label>Max age</label><input type="number" min="6" max="50" placeholder="e.g. 23"></div>
       <div class="add-filter-row" data-field="budgetMax"><label>Max budget (£M)</label><input type="number" min="0" step="0.1" placeholder="e.g. 2"></div>
       <div class="add-filter-row" data-field="gbeReq"><label class="add-filter-check"><input type="checkbox"> GBE eligible only</label></div>
       <div class="auth-error add-filter-error"></div>
-      <button class="add-filter-apply">Apply</button>
+      <div style="display:flex; gap:8px;">
+        <button class="add-filter-apply" style="background:var(--surface-2); color:var(--text-muted); border:1px solid var(--line); flex:1;" id="add-filter-cancel-btn">Close</button>
+        <button class="add-filter-apply" style="flex:1;" id="add-filter-apply-btn">Apply</button>
+      </div>
     </div>
     <div class="results-meta"><div class="results-count"></div>
       <div style="display:flex; align-items:center; gap:6px;"><span style="font-size:10.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em;">Sort</span><select class="sort-select">${sortOptionsHtml}</select></div>
@@ -1457,13 +1566,13 @@ function buildAssistantBlock(response, animate, sourceLabel){
   function renderFilterChips(){
     const fc = block.querySelector('.filter-chips');
     fc.innerHTML = '';
-    const hasAny = currentParsed.position || currentParsed.metric || currentParsed.ageMax || currentParsed.budgetMax || currentParsed.gbeReq;
+    const hasAny = currentParsed.position || currentParsed.metric || currentParsed.ageMin || currentParsed.ageMax || currentParsed.league || currentParsed.season || currentParsed.budgetMax || currentParsed.gbeReq;
     const filters = hasAny ? currentParsed.filters : [{t:"Scope", v:"All positions — no specific filter caught", field:null}];
     filters.forEach((f,idx)=>{
       const c = document.createElement('div');
       c.className = 'fchip' + (f.gbe ? ' gbe' : '');
       c.style.animationDelay = animate ? (idx*90)+'ms' : '0ms';
-      const removable = {"Position":"position","Metric":"metric","Age":"ageMax","Budget":"budgetMax","Eligibility":"gbeReq"}[f.t];
+      const removable = {"Position":"position","Metric":"metric","Age":"age","League":"league","Season":"season","Budget":"budgetMax","Eligibility":"gbeReq"}[f.t];
       c.innerHTML = `${f.t}: <b>${f.v}</b>${removable ? '<span class="fchip-x">✕</span>' : ''}`;
       if(removable){
         c.querySelector('.fchip-x').onclick = ()=> applyFilterChange(removable, null);
@@ -1481,7 +1590,9 @@ function buildAssistantBlock(response, animate, sourceLabel){
     const newParsed = {...currentParsed};
     if(field === 'position') newParsed.position = value;
     else if(field === 'metric') newParsed.metric = value; // value is a METRIC_MAP entry or null
-    else if(field === 'ageMax') newParsed.ageMax = value;
+    else if(field === 'age'){ newParsed.ageMin = null; newParsed.ageMax = null; } // Age chip covers both min and max together
+    else if(field === 'league') newParsed.league = value;
+    else if(field === 'season') newParsed.season = value;
     else if(field === 'budgetMax') newParsed.budgetMax = value;
     else if(field === 'gbeReq') newParsed.gbeReq = !!value;
     newParsed.filters = rebuildFiltersDisplay(newParsed);
@@ -1496,22 +1607,33 @@ function buildAssistantBlock(response, animate, sourceLabel){
     renderRealSquadSection();
   }
 
-  block.querySelector('.add-filter-apply').onclick = async ()=>{
+  block.querySelector('#add-filter-cancel-btn').onclick = ()=>{
+    block.querySelector('.add-filter-panel').classList.remove('show'); // close without applying anything
+  };
+  block.querySelector('#add-filter-apply-btn').onclick = async ()=>{
     const panel = block.querySelector('.add-filter-panel');
     const errEl = panel.querySelector('.add-filter-error');
     errEl.textContent = '';
     const posVal = panel.querySelector('[data-field="position"] select').value;
+    const leagueVal = panel.querySelector('[data-field="league"] select').value;
+    const seasonVal = panel.querySelector('[data-field="season"] select').value;
+    const ageMinVal = panel.querySelector('[data-field="ageMin"] input').value;
     const ageVal = panel.querySelector('[data-field="ageMax"] input').value;
     const budgetVal = panel.querySelector('[data-field="budgetMax"] input').value;
     const gbeVal = panel.querySelector('[data-field="gbeReq"] input').checked;
 
     // DEF-13: same sanity bounds the NL parser already enforces — a filter that can't possibly
     // match anyone (age 0, negative budget) shouldn't be silently accepted here.
-    let parsedAge = null, parsedBudget = null;
+    let parsedAgeMin = null, parsedAge = null, parsedBudget = null;
+    if(ageMinVal){
+      parsedAgeMin = parseInt(ageMinVal,10);
+      if(isNaN(parsedAgeMin) || parsedAgeMin < 6 || parsedAgeMin > 50){ errEl.textContent = 'Min age must be between 6 and 50.'; return; }
+    }
     if(ageVal){
       parsedAge = parseInt(ageVal,10);
-      if(isNaN(parsedAge) || parsedAge < 6 || parsedAge > 50){ errEl.textContent = 'Age must be between 6 and 50.'; return; }
+      if(isNaN(parsedAge) || parsedAge < 6 || parsedAge > 50){ errEl.textContent = 'Max age must be between 6 and 50.'; return; }
     }
+    if(parsedAgeMin !== null && parsedAge !== null && parsedAgeMin > parsedAge){ errEl.textContent = 'Min age can\'t be greater than max age.'; return; }
     if(budgetVal){
       parsedBudget = parseFloat(budgetVal);
       if(isNaN(parsedBudget) || parsedBudget <= 0){ errEl.textContent = 'Budget must be a positive number.'; return; }
@@ -1519,6 +1641,9 @@ function buildAssistantBlock(response, animate, sourceLabel){
 
     const newParsed = {...currentParsed};
     if(posVal) newParsed.position = posVal;
+    if(leagueVal) newParsed.league = leagueVal;
+    if(seasonVal) newParsed.season = parseInt(seasonVal,10);
+    if(parsedAgeMin !== null) newParsed.ageMin = parsedAgeMin;
     if(parsedAge !== null) newParsed.ageMax = parsedAge;
     if(parsedBudget !== null) newParsed.budgetMax = parsedBudget;
     if(gbeVal) newParsed.gbeReq = true;
@@ -1531,7 +1656,7 @@ function buildAssistantBlock(response, animate, sourceLabel){
     block.querySelector('.sort-select').value = 'relevance';
     panel.classList.remove('show');
     panel.querySelectorAll('input').forEach(i=> i.type==='checkbox' ? i.checked=false : i.value='');
-    panel.querySelector('select').value = '';
+    panel.querySelectorAll('select').forEach(s=> s.value='');
     renderFilterChips();
     renderPage();
     renderRealSquadSection();
@@ -1539,15 +1664,20 @@ function buildAssistantBlock(response, animate, sourceLabel){
 
   function sortedResults(mode){
     const arr = currentResponse.results.slice();
-    switch(mode){
-      case 'name-az': return arr.sort((a,b)=> a.name.localeCompare(b.name));
-      case 'name-za': return arr.sort((a,b)=> b.name.localeCompare(a.name));
-      case 'value-high': return arr.sort((a,b)=> (b.value ?? -1) - (a.value ?? -1));
-      case 'value-low': return arr.sort((a,b)=> (a.value ?? 1e9) - (b.value ?? 1e9));
-      case 'age-young': return arr.sort((a,b)=> (a.age ?? 999) - (b.age ?? 999));
-      case 'age-old': return arr.sort((a,b)=> (b.age ?? -1) - (a.age ?? -1));
-      default: return arr; // relevance = the order the search already produced
-    }
+    const byMode = {
+      'name-az': (a,b)=> a.name.localeCompare(b.name),
+      'name-za': (a,b)=> b.name.localeCompare(a.name),
+      'value-high': (a,b)=> (b.value ?? -1) - (a.value ?? -1),
+      'value-low': (a,b)=> (a.value ?? 1e9) - (b.value ?? 1e9),
+      'age-young': (a,b)=> (a.age ?? 999) - (b.age ?? 999),
+      'age-old': (a,b)=> (b.age ?? -1) - (a.age ?? -1),
+    };
+    // No-stats real-squad entries always sort to the end — there's no meaningful stat/value to
+    // rank them by, so mixing them into a value/age sort would be arbitrary rather than useful.
+    const withoutData = arr.filter(p=>p.isRealNoStats);
+    const withData = arr.filter(p=>!p.isRealNoStats);
+    if(byMode[mode]) withData.sort(byMode[mode]);
+    return withData.concat(withoutData);
   }
 
   function renderCards(results){
@@ -1555,8 +1685,20 @@ function buildAssistantBlock(response, animate, sourceLabel){
     list.innerHTML = '';
     results.forEach((p,idx)=>{
       const card = document.createElement('div');
-      card.className = 'pcard';
+      card.className = p.isRealNoStats ? 'pcard real-pcard' : 'pcard';
       card.style.animationDelay = animate ? (idx*70)+'ms' : '0ms';
+      if(p.isRealNoStats){
+        card.innerHTML = `
+          <div class="avatar">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+          <div class="pcard-mid">
+            <div class="pcard-name">${p.name}</div>
+            <div class="pcard-sub"><span class="real-badge" style="margin-right:6px;">Real</span>${p.pos} · ${p.club}${p.age?' · '+p.age:''}</div>
+          </div>
+          <div class="pcard-stat"><div class="val" style="color:var(--text-dim); font-size:11px;">No stats</div></div>`;
+        // no onclick — real-squad entries are identity-only, there's no profile data to show
+        list.appendChild(card);
+        return;
+      }
       const showGbe = canSee('gbe');
       const showValueStat = canSee('value') || p.statLabel !== 'VALUE';
       const formHtml = p.clubForm ? ` · <span style="font-family:'IBM Plex Mono',monospace; color:var(--sage); letter-spacing:.05em;">${p.clubForm.form}</span>` : '';
@@ -1591,38 +1733,8 @@ function buildAssistantBlock(response, animate, sourceLabel){
 
   block.querySelector('.sort-select').onchange = (e)=>{ currentSortMode = e.target.value; currentPage = 1; renderPage(); };
 
-  function renderRealSquadSection(){
-    const old = block.querySelector('.real-section');
-    if(old) old.remove();
-    if(currentResponse.realSquad && currentResponse.realSquad.total > 0){
-      const rs = currentResponse.realSquad;
-      const section = document.createElement('div');
-      section.className = 'real-section';
-      section.innerHTML = `<div class="real-section-head"><span class="real-badge">Real</span><span class="rlabel">${rs.total} real Championship squad ${rs.total===1?'match':'matches'}${rs.coarsePosition ? ' — broad position match' : ''}, no performance stats yet</span></div>`;
-      rs.sample.forEach(rp=>{
-        const row = document.createElement('div');
-        row.className = 'real-pcard';
-        row.innerHTML = `
-          <div class="avatar">${rp.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
-          <div class="pcard-mid">
-            <div class="pcard-name">${rp.name}</div>
-            <div class="pcard-sub">${rp.position} · ${rp.club}${rp.age?' · Age '+rp.age:''}</div>
-          </div>`;
-        section.appendChild(row);
-      });
-      if(rs.total > rs.sample.length){
-        const more = document.createElement('div');
-        more.className = 'real-more';
-        more.textContent = `+ ${rs.total - rs.sample.length} more in this squad list`;
-        section.appendChild(more);
-      }
-      block.querySelector('.pagination').before(section);
-    }
-  }
-
   renderFilterChips();
   renderPage();
-  renderRealSquadSection();
 
   return block;
 }
