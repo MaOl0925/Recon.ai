@@ -99,7 +99,8 @@
 
   .results-meta{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
   .results-count{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); }
-  .sort-select{ font-size:11px; color:var(--text-dim); background:transparent; border:none; outline:none; text-align:right; -webkit-appearance:none; appearance:none; cursor:pointer; padding-right:2px; }
+  .sort-select{ font-size:11.5px; font-weight:600; color:var(--text); background:var(--surface-2); border:1px solid var(--line); border-radius:14px; outline:none; cursor:pointer; padding:5px 10px; }
+  .sort-select:hover, .sort-select:focus{ border-color:var(--gold); }
   .sort-select option{ background:var(--surface); color:var(--text); }
 
   .results-list{ display:flex; flex-direction:column; gap:8px; }
@@ -224,6 +225,21 @@
   .diag-dot.fail{ background:var(--brick); }
   .diag-name{ font-weight:600; }
   .diag-detail{ color:var(--text-dim); font-size:11px; margin-top:2px; word-break:break-word; }
+  .fchip-x{ margin-left:6px; opacity:.6; cursor:pointer; font-weight:700; }
+  .fchip-x:hover{ opacity:1; color:var(--brick); }
+  .fchip-add{ font-family:'IBM Plex Mono',monospace; font-size:11px; padding:6px 10px; border-radius:8px; background:var(--surface-2); border:1px dashed var(--line); cursor:pointer; color:var(--text-muted); }
+  .fchip-add:hover{ border-color:var(--gold); color:var(--gold); }
+  .add-filter-panel{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:12px; margin:8px 0 4px; display:none; }
+  .add-filter-panel.show{ display:block; }
+  .add-filter-row{ margin-bottom:9px; }
+  .add-filter-row label{ font-size:10.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:4px; }
+  .add-filter-row select, .add-filter-row input[type=number]{ width:100%; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; color:var(--text); font-size:13px; font-family:'Inter',sans-serif; }
+  .add-filter-check{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--text); }
+  .add-filter-apply{ width:100%; background:var(--gold); color:#171308; border:none; border-radius:8px; padding:9px; font-weight:700; font-size:12.5px; cursor:pointer; margin-top:4px; }
+  .pagination{ display:flex; align-items:center; justify-content:center; gap:14px; padding:12px 0 2px; }
+  .page-btn{ background:var(--surface-2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:6px 12px; font-size:12px; cursor:pointer; }
+  .page-btn:disabled{ opacity:.35; cursor:default; }
+  .page-indicator{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); }
   .auth-note{ font-size:11px; color:var(--text-dim); line-height:1.6; margin-top:24px; padding-top:18px; border-top:1px solid var(--line); }
 </style>
 </head>
@@ -664,8 +680,17 @@ async function parseQuerySmart(text){
   }
 }
 
-async function runSearch(text){
-  const parsed = await parseQuerySmart(text);
+function rebuildFiltersDisplay(parsed){
+  const filters = [];
+  if(parsed.position) filters.push({t:"Position", v:{CB:"Centre-Back",FB:"Full-Back",WG:"Winger",ST:"Striker",CM:"Midfielder",DEF:"Defender (CB or FB)"}[parsed.position]});
+  if(parsed.metric) filters.push({t:"Metric", v: parsed.metric.label + (parsed.metric.key==="__xgdiff" ? " — underperforming" : " — Top range")});
+  if(parsed.ageMax) filters.push({t:"Age", v:"Under "+parsed.ageMax});
+  if(parsed.budgetMax) filters.push({t:"Budget", v:"≤ £"+parsed.budgetMax+"M"});
+  if(parsed.gbeReq) filters.push({t:"Eligibility", v:"GBE eligible", gbe:true});
+  return filters;
+}
+
+function filterAndSort(parsed){
   let pool = POOL.slice();
   let fellBack = false;
 
@@ -689,7 +714,7 @@ async function runSearch(text){
   }
 
   const totalMatches = pool.length;
-  const results = pool.slice(0,10).map(p=>{
+  const results = pool.map(p=>{ // ALL matches, not sliced — pagination handles display size, not the search
     let statLabel, statVal;
     if(sortKey === "__xgdiff"){ statLabel="G−xG/90"; statVal=(p.s.goals-p.s.xg).toFixed(2); }
     else if(sortKey && p.s[sortKey]!==undefined){
@@ -700,6 +725,11 @@ async function runSearch(text){
   });
 
   return {parsed, fellBack, results, totalMatches};
+}
+
+async function runSearch(text){
+  const parsed = await parseQuerySmart(text);
+  return filterAndSort(parsed);
 }
 
 /* ---------------- Live data: StatsBomb Open Data (via Hudl GitHub repo) ---------------- */
@@ -935,7 +965,8 @@ async function loadFootballData(){
     );
     const standings = [];
     files.forEach(file=>{
-      const group = (file.standings || []).find(s=>s.type === 'TOTAL') || (file.standings || [])[0];
+      const standingsArray = (file.standings && file.standings.standings) || [];
+      const group = standingsArray.find(s=>s.type === 'TOTAL') || standingsArray[0];
       if(!group) return;
       group.table.forEach(row=>{
         standings.push({
@@ -1083,11 +1114,10 @@ async function loadEflSquads(){
 // gap, not a bug, and the UI says so.
 const REAL_POSITION_MAP = { CB:"Defender", FB:"Defender", DEF:"Defender", WG:"Midfielder", CM:"Midfielder", ST:"Attacker" };
 
-async function runRealSquadSearch(text){
+async function realSquadFromParsed(parsed){
   let squad;
   try{ squad = await loadEflSquads(); } catch(e){ return null; }
 
-  const parsed = await parseQuerySmart(text);
   let pool = squad;
   if(parsed.position){
     const bucket = REAL_POSITION_MAP[parsed.position];
@@ -1098,6 +1128,11 @@ async function runRealSquadSearch(text){
 
   pool = pool.slice().sort((a,b)=> (a.age||99) - (b.age||99));
   return { total: pool.length, sample: pool.slice(0,3), coarsePosition: !!parsed.position };
+}
+
+async function runRealSquadSearch(text){
+  const parsed = await parseQuerySmart(text);
+  return realSquadFromParsed(parsed);
 }
 
 const hasNativeStorage = (typeof window !== 'undefined') && !!window.storage;
@@ -1260,6 +1295,20 @@ function liveSourceLabel(sourcesOk, sourcesTotal){
   return `Live data — ${sourcesOk} of ${sourcesTotal} sources reachable right now`;
 }
 
+/* Re-runs a search from an EDITED filter set (add/remove a chip) rather than re-parsing text.
+   If the original turn was live, re-applies the same enrichment functions to the new result
+   set so removing/adding a filter doesn't lose real club form/standings/team-stats data. */
+async function reRunWithParsed(parsed, wasLive){
+  const response = filterAndSort(parsed);
+  if(wasLive){
+    await enrichWithClubForm(response.results);
+    await enrichWithStandings(response.results);
+    await enrichWithTeamStats(response.results);
+    response.realSquad = await realSquadFromParsed(parsed);
+  }
+  return response;
+}
+
 function sendMessage(){
   const text = input.value.trim();
   if(!text) return;
@@ -1357,26 +1406,102 @@ function buildAssistantBlock(response, animate, sourceLabel){
     ${fallbackHtml}
     <div class="breakdown-label"><span class="pulse"></span>QUERY UNDERSTOOD AS</div>
     <div class="filter-chips"></div>
-    <div class="results-meta"><div class="results-count">${response.totalMatches ?? response.results.length} matches</div>
-      <select class="sort-select">${sortOptionsHtml}</select>
+    <div class="add-filter-panel">
+      <div class="add-filter-row" data-field="position"><label>Position</label>
+        <select><option value="">— none —</option><option value="CB">Centre-Back</option><option value="FB">Full-Back</option><option value="DEF">Defender (either)</option><option value="WG">Winger</option><option value="CM">Midfielder</option><option value="ST">Striker</option></select>
+      </div>
+      <div class="add-filter-row" data-field="ageMax"><label>Max age</label><input type="number" min="6" max="50" placeholder="e.g. 23"></div>
+      <div class="add-filter-row" data-field="budgetMax"><label>Max budget (£M)</label><input type="number" min="0" step="0.1" placeholder="e.g. 2"></div>
+      <div class="add-filter-row" data-field="gbeReq"><label class="add-filter-check"><input type="checkbox"> GBE eligible only</label></div>
+      <button class="add-filter-apply">Apply</button>
+    </div>
+    <div class="results-meta"><div class="results-count"></div>
+      <div style="display:flex; align-items:center; gap:6px;"><span style="font-size:10.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em;">Sort</span><select class="sort-select">${sortOptionsHtml}</select></div>
     </div>
     <div class="results-list"></div>
+    <div class="pagination"></div>
   `;
-  const fc = block.querySelector('.filter-chips');
-  const filters = response.parsed.filters.length ? response.parsed.filters : [{t:"Scope", v:"All positions — no specific filter caught"}];
-  filters.forEach((f,idx)=>{
-    const c = document.createElement('div');
-    c.className = 'fchip' + (f.gbe ? ' gbe' : '');
-    c.style.animationDelay = animate ? (idx*90)+'ms' : '0ms';
-    c.innerHTML = `${f.t}: <b>${f.v}</b>`;
-    fc.appendChild(c);
-  });
 
-  const list = block.querySelector('.results-list');
-  const originalOrder = response.results.slice(); // preserve for "Relevance"
+  const wasLive = !!sourceLabel;
+  let currentParsed = response.parsed;
+  let currentResponse = response;
+  let currentPage = 1;
+  const PAGE_SIZE = 10;
+  let currentSortMode = 'relevance';
+
+  const FIELD_LABELS = {CB:"Centre-Back",FB:"Full-Back",WG:"Winger",ST:"Striker",CM:"Midfielder",DEF:"Defender (CB or FB)"};
+
+  function renderFilterChips(){
+    const fc = block.querySelector('.filter-chips');
+    fc.innerHTML = '';
+    const hasAny = currentParsed.position || currentParsed.metric || currentParsed.ageMax || currentParsed.budgetMax || currentParsed.gbeReq;
+    const filters = hasAny ? currentParsed.filters : [{t:"Scope", v:"All positions — no specific filter caught", field:null}];
+    filters.forEach((f,idx)=>{
+      const c = document.createElement('div');
+      c.className = 'fchip' + (f.gbe ? ' gbe' : '');
+      c.style.animationDelay = animate ? (idx*90)+'ms' : '0ms';
+      const removable = {"Position":"position","Metric":"metric","Age":"ageMax","Budget":"budgetMax","Eligibility":"gbeReq"}[f.t];
+      c.innerHTML = `${f.t}: <b>${f.v}</b>${removable ? '<span class="fchip-x">✕</span>' : ''}`;
+      if(removable){
+        c.querySelector('.fchip-x').onclick = ()=> applyFilterChange(removable, null);
+      }
+      fc.appendChild(c);
+    });
+    const addChip = document.createElement('div');
+    addChip.className = 'fchip-add';
+    addChip.textContent = '+ Add filter';
+    addChip.onclick = ()=> block.querySelector('.add-filter-panel').classList.toggle('show');
+    fc.appendChild(addChip);
+  }
+
+  async function applyFilterChange(field, value){
+    const newParsed = {...currentParsed};
+    if(field === 'position') newParsed.position = value;
+    else if(field === 'metric') newParsed.metric = value; // value is a METRIC_MAP entry or null
+    else if(field === 'ageMax') newParsed.ageMax = value;
+    else if(field === 'budgetMax') newParsed.budgetMax = value;
+    else if(field === 'gbeReq') newParsed.gbeReq = !!value;
+    newParsed.filters = rebuildFiltersDisplay(newParsed);
+
+    currentResponse = await reRunWithParsed(newParsed, wasLive);
+    currentParsed = currentResponse.parsed;
+    currentPage = 1;
+    currentSortMode = 'relevance';
+    block.querySelector('.sort-select').value = 'relevance';
+    renderFilterChips();
+    renderPage();
+    renderRealSquadSection();
+  }
+
+  block.querySelector('.add-filter-apply').onclick = async ()=>{
+    const panel = block.querySelector('.add-filter-panel');
+    const posVal = panel.querySelector('[data-field="position"] select').value;
+    const ageVal = panel.querySelector('[data-field="ageMax"] input').value;
+    const budgetVal = panel.querySelector('[data-field="budgetMax"] input').value;
+    const gbeVal = panel.querySelector('[data-field="gbeReq"] input').checked;
+
+    const newParsed = {...currentParsed};
+    if(posVal) newParsed.position = posVal;
+    if(ageVal) newParsed.ageMax = parseInt(ageVal,10);
+    if(budgetVal) newParsed.budgetMax = parseFloat(budgetVal);
+    if(gbeVal) newParsed.gbeReq = true;
+    newParsed.filters = rebuildFiltersDisplay(newParsed);
+
+    currentResponse = await reRunWithParsed(newParsed, wasLive);
+    currentParsed = currentResponse.parsed;
+    currentPage = 1;
+    currentSortMode = 'relevance';
+    block.querySelector('.sort-select').value = 'relevance';
+    panel.classList.remove('show');
+    panel.querySelectorAll('input').forEach(i=> i.type==='checkbox' ? i.checked=false : i.value='');
+    panel.querySelector('select').value = '';
+    renderFilterChips();
+    renderPage();
+    renderRealSquadSection();
+  };
 
   function sortedResults(mode){
-    const arr = response.results.slice();
+    const arr = currentResponse.results.slice();
     switch(mode){
       case 'name-az': return arr.sort((a,b)=> a.name.localeCompare(b.name));
       case 'name-za': return arr.sort((a,b)=> b.name.localeCompare(a.name));
@@ -1384,11 +1509,12 @@ function buildAssistantBlock(response, animate, sourceLabel){
       case 'value-low': return arr.sort((a,b)=> (a.value ?? 1e9) - (b.value ?? 1e9));
       case 'age-young': return arr.sort((a,b)=> (a.age ?? 999) - (b.age ?? 999));
       case 'age-old': return arr.sort((a,b)=> (b.age ?? -1) - (a.age ?? -1));
-      default: return originalOrder.slice(); // relevance = whatever order the search already produced
+      default: return arr; // relevance = the order the search already produced
     }
   }
 
   function renderCards(results){
+    const list = block.querySelector('.results-list');
     list.innerHTML = '';
     results.forEach((p,idx)=>{
       const card = document.createElement('div');
@@ -1409,33 +1535,57 @@ function buildAssistantBlock(response, animate, sourceLabel){
     });
   }
 
-  renderCards(originalOrder);
-  block.querySelector('.sort-select').onchange = (e)=> renderCards(sortedResults(e.target.value));
+  function renderPage(){
+    block.querySelector('.results-count').textContent = `${currentResponse.totalMatches ?? currentResponse.results.length} matches`;
+    const all = sortedResults(currentSortMode);
+    const totalPages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
+    currentPage = Math.min(currentPage, totalPages);
+    const start = (currentPage-1)*PAGE_SIZE;
+    renderCards(all.slice(start, start+PAGE_SIZE));
 
-  if(response.realSquad && response.realSquad.total > 0){
-    const rs = response.realSquad;
-    const section = document.createElement('div');
-    section.className = 'real-section';
-    section.innerHTML = `<div class="real-section-head"><span class="real-badge">Real</span><span class="rlabel">${rs.total} real Championship squad ${rs.total===1?'match':'matches'}${rs.coarsePosition ? ' — broad position match' : ''}, no performance stats yet</span></div>`;
-    rs.sample.forEach(rp=>{
-      const row = document.createElement('div');
-      row.className = 'real-pcard';
-      row.innerHTML = `
-        <div class="avatar">${rp.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
-        <div class="pcard-mid">
-          <div class="pcard-name">${rp.name}</div>
-          <div class="pcard-sub">${rp.position} · ${rp.club}${rp.age?' · Age '+rp.age:''}</div>
-        </div>`;
-      section.appendChild(row);
-    });
-    if(rs.total > rs.sample.length){
-      const more = document.createElement('div');
-      more.className = 'real-more';
-      more.textContent = `+ ${rs.total - rs.sample.length} more in this squad list`;
-      section.appendChild(more);
-    }
-    block.querySelector('.results-list').after(section);
+    const pag = block.querySelector('.pagination');
+    if(totalPages <= 1){ pag.innerHTML = ''; return; }
+    pag.innerHTML = `<button class="page-btn" id="page-prev">← Prev</button><span class="page-indicator">Page ${currentPage} of ${totalPages}</span><button class="page-btn" id="page-next">Next →</button>`;
+    pag.querySelector('#page-prev').disabled = currentPage <= 1;
+    pag.querySelector('#page-next').disabled = currentPage >= totalPages;
+    pag.querySelector('#page-prev').onclick = ()=>{ currentPage--; renderPage(); };
+    pag.querySelector('#page-next').onclick = ()=>{ currentPage++; renderPage(); };
   }
+
+  block.querySelector('.sort-select').onchange = (e)=>{ currentSortMode = e.target.value; currentPage = 1; renderPage(); };
+
+  function renderRealSquadSection(){
+    const old = block.querySelector('.real-section');
+    if(old) old.remove();
+    if(currentResponse.realSquad && currentResponse.realSquad.total > 0){
+      const rs = currentResponse.realSquad;
+      const section = document.createElement('div');
+      section.className = 'real-section';
+      section.innerHTML = `<div class="real-section-head"><span class="real-badge">Real</span><span class="rlabel">${rs.total} real Championship squad ${rs.total===1?'match':'matches'}${rs.coarsePosition ? ' — broad position match' : ''}, no performance stats yet</span></div>`;
+      rs.sample.forEach(rp=>{
+        const row = document.createElement('div');
+        row.className = 'real-pcard';
+        row.innerHTML = `
+          <div class="avatar">${rp.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+          <div class="pcard-mid">
+            <div class="pcard-name">${rp.name}</div>
+            <div class="pcard-sub">${rp.position} · ${rp.club}${rp.age?' · Age '+rp.age:''}</div>
+          </div>`;
+        section.appendChild(row);
+      });
+      if(rs.total > rs.sample.length){
+        const more = document.createElement('div');
+        more.className = 'real-more';
+        more.textContent = `+ ${rs.total - rs.sample.length} more in this squad list`;
+        section.appendChild(more);
+      }
+      block.querySelector('.pagination').before(section);
+    }
+  }
+
+  renderFilterChips();
+  renderPage();
+  renderRealSquadSection();
 
   return block;
 }
