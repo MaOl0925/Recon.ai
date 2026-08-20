@@ -328,7 +328,6 @@
             <div class="icon-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/></svg></div>
             <button class="send-btn" id="send-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
           </div>
-          <div class="legal-footer">Player statistics shown are illustrative demo data and do not reflect verified real-world performance. Not intended to inform recruitment or transfer decisions.</div>
         </div>
 
         <div class="overlay" id="overlay"></div>
@@ -390,7 +389,7 @@
           <div class="section-label">Data sources</div>
           <div class="toggle-row">
             <div><div class="tr-label">Live data</div><div class="tr-sub">Blends real match data (StatsBomb), real club form (openfootball), real league standings (football-data.org), and real club season records (API-Football, cached) into one response, presented as a single source</div></div>
-            <div class="switch" id="live-data-toggle"><div class="knob"></div></div>
+            <div class="switch on" id="live-data-toggle"><div class="knob"></div></div>
           </div>
           <button class="auth-btn" id="test-sources-btn" style="margin:6px 0 4px; background:var(--surface-2); color:var(--text); border:1px solid var(--line);">Test live data sources</button>
           <div id="source-test-results"></div>
@@ -761,7 +760,7 @@ async function runSearch(text){
    scraping them client-side isn't appropriate. A production Recon backend would pull those via a
    server-side job, per PRD Section 13, not a client fetch. */
 const SB_BASE = "https://raw.githubusercontent.com/hudl/open-data/master/data";
-let liveMode = false;
+let liveMode = true;
 let liveContext = null;   // { label, players: [...] }
 let liveLoadPromise = null;
 let liveLoadFailed = false;
@@ -1412,9 +1411,6 @@ function buildAssistantBlock(response, animate, sourceLabel){
   const fallbackHtml = response.fellBack
     ? `<div class="fallback-note">${droppedList.length ? `No exact match, so ${droppedList.join(' and ')} ${droppedList.length>1?'were':'was'} relaxed to find these — the filters above now reflect what's actually applied.` : `Nothing matched at all — showing the full pool as a starting point.`}</div>`
     : '';
-  const sourceHtml = sourceLabel
-    ? `<div class="fallback-note" style="color:var(--sage); border-color:rgba(95,165,122,.35); background:rgba(95,165,122,.08);">${sourceLabel}</div>`
-    : '';
 
   const showValue = canSee('value');
   const sortOptions = [
@@ -1429,7 +1425,6 @@ function buildAssistantBlock(response, animate, sourceLabel){
 
   block.innerHTML = `
     <div class="assistant-tag"><div class="ring"><i></i></div><span>Recon</span></div>
-    ${sourceHtml}
     ${fallbackHtml}
     <div class="breakdown-label"><span class="pulse"></span>QUERY UNDERSTOOD AS</div>
     <div class="filter-chips"></div>
