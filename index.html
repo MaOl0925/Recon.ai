@@ -456,6 +456,10 @@
           </div>
           <div id="visibility-controls"></div>
           <div class="auth-note" style="margin-top:14px;">These toggles hide fields in this app's screens. In this demo (no backend), the underlying data is still present in the page itself — real field-level restriction has to happen on the server, so a Recruiter's device is never sent data they shouldn't see at all.</div>
+
+          <div class="section-label">Data sources</div>
+          <div id="data-sources-controls"></div>
+          <div class="auth-note">Turning a source off skips it entirely for everyone at this club — it won't be attempted or counted against "sources reachable." None of these need a personal API key from anyone; they're pre-configured for the whole club, this just controls which ones are active.</div>
         </div>
       </div>
 
@@ -606,6 +610,112 @@ const METRIC_MAP = [
   {test:/interception/i, key:"interceptions", label:"Interceptions/90 — Top range", dir:-1},
 ];
 
+// #7: nickname + typo-tolerant club matching. Real common nicknames checked first (fast,
+// no false positives); genuine typos caught by edit-distance as a fallback.
+const CLUB_ALIASES = {
+  "Preston North End": ["preston","pne","north end"],
+  "Leeds United": ["leeds"],
+  "Sunderland": ["sunderland","black cats"],
+  "Middlesbrough": ["boro","middlesbrough"],
+  "Norwich City": ["norwich","canaries"],
+  "Sheffield United": ["blades","sheff utd","sheff united","sheffield utd"],
+  "West Bromwich Albion": ["west brom","wba","baggies","albion"],
+  "Coventry City": ["coventry","sky blues"],
+  "Bristol City": ["bristol city","robins"],
+  "Watford": ["hornets"],
+  "Hull City": ["hull","tigers"],
+  "Millwall": ["lions"],
+  "Swansea City": ["swansea","swans"],
+  "Cardiff City": ["cardiff","bluebirds"],
+  "Stoke City": ["stoke","potters"],
+  "Blackburn Rovers": ["blackburn","rovers"],
+  "Derby County": ["derby","rams"],
+  "Luton Town": ["luton","hatters"],
+  "Oxford United": ["oxford"],
+  "Sheffield Wednesday": ["wednesday","owls","sheff wed"],
+  "Portsmouth": ["pompey"],
+  "Wrexham": [],
+  "Bolton Wanderers": ["bolton","trotters"],
+  "Barnsley": ["tykes"],
+  "Peterborough United": ["peterborough","posh"],
+  "Crewe Alexandra": ["crewe"],
+  "Notts County": ["notts county","notts"],
+  "Walsall": ["saddlers"],
+  "Doncaster Rovers": ["doncaster"],
+  "Rangers": ["gers"],
+  "Celtic": ["bhoys","hoops"],
+  "Hearts": ["heart of midlothian"],
+  "Aberdeen": ["dons"],
+  "PSV Eindhoven": ["psv"],
+  "Ajax": [],
+  "Feyenoord": [],
+  "AZ Alkmaar": ["az"],
+};
+
+function levenshtein(a, b){
+  const m = a.length, n = b.length;
+  const dp = Array.from({length:m+1}, (_,i)=> [i, ...Array(n).fill(0)]);
+  for(let j=0;j<=n;j++) dp[0][j] = j;
+  for(let i=1;i<=m;i++){
+    for(let j=1;j<=n;j++){
+      dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j-1], dp[i-1][j], dp[i][j-1]);
+    }
+  }
+  return dp[m][n];
+}
+
+function detectClub(text){
+  const lower = text.toLowerCase();
+  // Fast path: official name or a known nickname appears as a substring — no false positives.
+  for(const [official, aliases] of Object.entries(CLUB_ALIASES)){
+    if(lower.includes(official.toLowerCase())) return official;
+    for(const alias of aliases){ if(alias && new RegExp('\\b'+alias.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i').test(lower)) return official; }
+  }
+  // Fallback: genuine typo tolerance — fuzzy-match each word/short phrase in the query against
+  // every club name and alias, accept only a close, confident match (short edit distance
+  // relative to word length) so this doesn't start matching unrelated words.
+  const words = lower.split(/\s+/).filter(w=>w.length>=4);
+  let best = null, bestDist = Infinity;
+  for(const [official, aliases] of Object.entries(CLUB_ALIASES)){
+    const candidates = [official.toLowerCase(), ...aliases];
+    for(const cand of candidates){
+      for(const w of words){
+        const candFirst = cand.split(' ')[0];
+        const dist = levenshtein(w, candFirst); // compare against the candidate's first word — catches "Prestn"→"Preston" etc.
+        const maxDist = candFirst.length <= 5 ? 1 : 2; // short words need a tighter tolerance — distance 2 on 4-5 letters is way too loose (caused 'some'~'Stoke')
+        if(dist <= maxDist && dist < bestDist){ bestDist = dist; best = official; }
+      }
+    }
+  }
+  return best;
+}
+
+// Exact-substring player name search — deliberately NOT fuzzy. Precision beats recall here:
+// if someone types a specific player's name, they want that exact player or nobody — never a
+// silently-substituted "close" name. Fuzzy tolerance (like detectClub above) is the wrong model
+// for a name lookup; that belongs in a separate, clearly-labeled "did you mean" layer, not blended
+// in here where it could quietly crowd out an exact, correct result.
+const NAME_STOPWORDS = new Set(["with","from","that","this","have","most","best","over","budget","season","under","their","about","which","being","doing","aged","team","club"]);
+
+function detectPlayerName(text){
+  const cleaned = text.trim();
+  const lowerFull = cleaned.toLowerCase();
+
+  // Try the whole cleaned query as a substring first — covers "Adeyemi" or "M. Adeyemi" typed alone.
+  const wholeMatches = POOL.filter(p=>p.name.toLowerCase().includes(lowerFull));
+  if(lowerFull.length >= 3 && wholeMatches.length > 0) return { term: cleaned, matches: wholeMatches };
+
+  // Otherwise, test individual words (skipping short/common ones) against real generated names —
+  // only a word that genuinely appears inside an actual player's name counts as a hit, so a
+  // stray common word can never accidentally trigger a name filter.
+  const words = lowerFull.split(/\s+/).filter(w=> w.length>=4 && !NAME_STOPWORDS.has(w));
+  for(const w of words){
+    const matches = POOL.filter(p=>p.name.toLowerCase().includes(w));
+    if(matches.length > 0) return { term: w, matches };
+  }
+  return null;
+}
+
 function parseQuery(text){
   const filters = [];
   let position = null;
@@ -647,7 +757,12 @@ function parseQuery(text){
   if(league) filters.push({t:"League", v:league});
 
   let budgetMax = null;
+  const club = detectClub(text);
+  if(club) filters.push({t:"Club", v:club});
+  const nameHit = detectPlayerName(text);
+  if(nameHit) filters.push({t:"Name", v:`"${nameHit.term}" — ${nameHit.matches.length} match${nameHit.matches.length===1?'':'es'}`});
   const cleanText = text.replace(/,/g, '');
+
   const budgetMatch = cleanText.match(/£\s?([\d.]+)\s?(m|million|k|thousand)?|budget of £?\s?([\d.]+)\s?(m|million|k|thousand)?/i);
   if(budgetMatch){
     const rawNum = parseFloat(budgetMatch[1] || budgetMatch[3]);
@@ -665,7 +780,20 @@ function parseQuery(text){
   const gbeReq = /\bgbe\b|work permit|\besc\b|\bvisa\b/i.test(text); // DEF-06: removed bare "eligib" — was matching unrelated "eligible for..." phrases
   if(gbeReq) filters.push({t:"Eligibility", v:"GBE eligible", gbe:true});
 
-  return {position, metric, ageMin, ageMax, league, season, budgetMax, gbeReq, filters};
+  // If NOTHING else was recognized and no confirmed name match was found either, the query
+  // still might be an attempted name search that just doesn't match anyone (e.g. a typo'd or
+  // entirely made-up name). Rather than silently falling through to "no filter caught — show
+  // everything," treat the raw text as an attempted name so a genuinely nonexistent name
+  // correctly returns zero results instead of the whole pool.
+  let finalNameQuery = nameHit ? nameHit.term : null;
+  const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+  const looksLikeSentence = /\b(show|me|some|good|players|who|is|are|please|give|find|list|any|there|player|players)\b/i.test(text);
+  if(!finalNameQuery && !position && !metric && !league && !club && !ageMin && !ageMax && !season && !budgetMax && !gbeReq && wordCount<=3 && !looksLikeSentence){
+    const trimmed = text.trim();
+    if(trimmed.length >= 3) finalNameQuery = trimmed;
+  }
+
+  return {position, metric, ageMin, ageMax, league, season, club, nameQuery: finalNameQuery, budgetMax, gbeReq, filters};
 }
 
 /* ---------------- Real NLQ layer (LLM-based), regex above kept as automatic fallback ---------------- */
@@ -688,6 +816,8 @@ Respond with ONLY a JSON object, no other text, no markdown fences, in exactly t
   "ageMin": a number (the minimum age mentioned, e.g. "over 30" or "aged 25+"), or null,
   "ageMax": a number (the maximum age mentioned), or null,
   "league": one of "Championship", "League One", "League Two", "Scottish Premiership", "Eredivisie", or null,
+  "club": the specific club name mentioned, as free text (e.g. "Boro", "West Brom", a misspelling — don't worry about exact official naming, just extract what was said), or null if no specific club is mentioned,
+  "playerName": if the query is searching for a SPECIFIC named player (not a position/role description), the name or surname as typed, else null — do not treat position words, stat words, or club names as a player name,
   "season": one of 2022, 2023, 2024 (the specific year being asked about — "last season" means 2023, "this season"/"current" means 2024, "two seasons ago" means 2022, an explicit year mentioned means that year), or null if no season is specified,
   "budgetMaxM": a number in millions of pounds (convert any currency/format mentioned into this), or null,
   "gbeRequired": true only if the query explicitly asks about visa/work-permit/GBE/ESC eligibility, else false
@@ -728,6 +858,19 @@ Respond with ONLY a JSON object, no other text, no markdown fences, in exactly t
   const league = VALID_LEAGUES.includes(parsed.league) ? parsed.league : null;
   if(league) filters.push({t:"League", v:league});
 
+  const club = typeof parsed.club === 'string' ? detectClub(parsed.club) : null; // resolve the AI's free-text guess through the same matcher as the regex path
+  if(club) filters.push({t:"Club", v:club});
+
+  let nameQuery = null;
+  if(typeof parsed.playerName === 'string' && parsed.playerName.trim()){
+    const term = parsed.playerName.trim();
+    const count = POOL.filter(p=>p.name.toLowerCase().includes(term.toLowerCase())).length;
+    if(count > 0){ nameQuery = term; filters.push({t:"Name", v:`"${term}" — ${count} match${count===1?'':'es'}`}); }
+    // if count is 0, nameQuery stays null here too — filterAndSort's own zero-match check will
+    // still catch this and correctly return no results rather than silently dropping it
+    else nameQuery = term; // still pass it through so the "no results, no substitution" path applies
+  }
+
   const season = [2022,2023,2024].includes(parsed.season) ? parsed.season : null;
   if(season) filters.push({t:"Season", v:String(season)});
 
@@ -737,7 +880,7 @@ Respond with ONLY a JSON object, no other text, no markdown fences, in exactly t
   const gbeReq = !!parsed.gbeRequired;
   if(gbeReq) filters.push({t:"Eligibility", v:"GBE eligible", gbe:true});
 
-  return {position, metric, ageMin, ageMax, league, season, budgetMax, gbeReq, filters, _viaAI:true};
+  return {position, metric, ageMin, ageMax, league, club, nameQuery, season, budgetMax, gbeReq, filters, _viaAI:true};
 }
 
 let nlqAIFailed = false; // once it fails once (e.g. not in claude.ai preview), stop retrying every query — just use regex
@@ -760,45 +903,71 @@ function rebuildFiltersDisplay(parsed){
   else if(parsed.ageMax) filters.push({t:"Age", v:"Under "+parsed.ageMax});
   else if(parsed.ageMin) filters.push({t:"Age", v:parsed.ageMin+"+"});
   if(parsed.league) filters.push({t:"League", v:parsed.league});
+  if(parsed.club) filters.push({t:"Club", v:parsed.club});
+  if(parsed.nameQuery){
+    const count = POOL.filter(p=>p.name.toLowerCase().includes(parsed.nameQuery.toLowerCase())).length;
+    filters.push({t:"Name", v:`"${parsed.nameQuery}" — ${count} match${count===1?'':'es'}`});
+  }
   if(parsed.season) filters.push({t:"Season", v:String(parsed.season)});
   if(parsed.budgetMax) filters.push({t:"Budget", v:"≤ £"+parsed.budgetMax+"M"});
   if(parsed.gbeReq) filters.push({t:"Eligibility", v:"GBE eligible", gbe:true});
   return filters;
 }
 
-function applyFilters(position, ageMin, ageMax, league, budgetMax, gbeReq, season){
+function applyFilters(position, ageMin, ageMax, league, club, budgetMax, gbeReq, season, nameQuery){
   let pool = POOL.slice();
   if(season) pool = pool.map(p=> (p.seasons && p.seasons[season]) ? {...p, age: p.seasons[season].age, s: p.seasons[season].s} : p); // swap to that season's age/stats before anything else filters or sorts on them
+  if(nameQuery) pool = pool.filter(p=>p.name.toLowerCase().includes(nameQuery.toLowerCase())); // exact substring only, never fuzzy — see detectPlayerName's note on why
   if(position) pool = pool.filter(p=> position==="DEF" ? (p.pos==="CB"||p.pos==="FB") : p.pos===position);
   if(ageMin) pool = pool.filter(p=>p.age>=ageMin);
   if(ageMax) pool = pool.filter(p=>p.age<=ageMax);
   if(league) pool = pool.filter(p=>p.league===league);
+  if(club) pool = pool.filter(p=>p.club===club);
   if(budgetMax) pool = pool.filter(p=>p.value<=budgetMax);
   if(gbeReq) pool = pool.filter(p=>p.gbe===true);
   return pool;
 }
 
 function filterAndSort(parsed){
-  let {position, ageMin, ageMax, league, budgetMax, gbeReq, season} = parsed;
-  let pool = applyFilters(position, ageMin, ageMax, league, budgetMax, gbeReq, season);
+  let {position, ageMin, ageMax, league, club, budgetMax, gbeReq, season, nameQuery} = parsed;
   let fellBack = false;
   const droppedFilters = [];
+  let noNameMatch = false;
+
+  // A name search is precision-first: if the name matches literally nobody in the whole pool,
+  // stop right here — zero results, no loosening cascade, no substituting an unrelated "close"
+  // player. That's the whole point of exact-substring name search over fuzzy matching.
+  if(nameQuery){
+    const anyoneAtAll = POOL.some(p=>p.name.toLowerCase().includes(nameQuery.toLowerCase()));
+    if(!anyoneAtAll){
+      noNameMatch = true;
+      const effectiveParsed = {...parsed};
+      effectiveParsed.filters = rebuildFiltersDisplay(effectiveParsed);
+      return {parsed: effectiveParsed, fellBack:false, noNameMatch, droppedFilters:[], results:[], totalMatches:0};
+    }
+  }
+
+  let pool = applyFilters(position, ageMin, ageMax, league, club, budgetMax, gbeReq, season, nameQuery);
 
   if(pool.length===0){
     fellBack = true;
-    // DEF-04: loosen ONE constraint at a time (budget, then age, then league, then GBE —
+    // DEF-04: loosen ONE constraint at a time (budget, then age, then league/club, then GBE —
     // position kept longest) instead of discarding everything. Whatever's dropped here is
     // actually removed from the filters shown, so the chip row never claims a constraint is
     // active when it isn't. Season isn't part of this — every player has data for every season,
-    // so season alone can never be the reason a search comes back empty.
-    if(budgetMax){ budgetMax = null; droppedFilters.push('Budget'); pool = applyFilters(position, ageMin, ageMax, league, budgetMax, gbeReq, season); }
-    if(pool.length===0 && (ageMin || ageMax)){ ageMin = null; ageMax = null; droppedFilters.push('Age'); pool = applyFilters(position, ageMin, ageMax, league, budgetMax, gbeReq, season); }
-    if(pool.length===0 && league){ league = null; droppedFilters.push('League'); pool = applyFilters(position, ageMin, ageMax, league, budgetMax, gbeReq, season); }
-    if(pool.length===0 && gbeReq){ gbeReq = false; droppedFilters.push('Eligibility'); pool = applyFilters(position, ageMin, ageMax, league, budgetMax, gbeReq, season); }
-    if(pool.length===0 && position){ position = null; droppedFilters.push('Position'); pool = applyFilters(position, ageMin, ageMax, league, budgetMax, gbeReq, season); }
+    // so season alone can never be the reason a search comes back empty. nameQuery is NEVER
+    // dropped here — if a real player by that name exists somewhere in the pool (confirmed
+    // above), the loosening cascade exists specifically to go find them, not to abandon the
+    // one filter that was actually precise.
+    if(budgetMax){ budgetMax = null; droppedFilters.push('Budget'); pool = applyFilters(position, ageMin, ageMax, league, club, budgetMax, gbeReq, season, nameQuery); }
+    if(pool.length===0 && (ageMin || ageMax)){ ageMin = null; ageMax = null; droppedFilters.push('Age'); pool = applyFilters(position, ageMin, ageMax, league, club, budgetMax, gbeReq, season, nameQuery); }
+    if(pool.length===0 && club){ club = null; droppedFilters.push('Club'); pool = applyFilters(position, ageMin, ageMax, league, club, budgetMax, gbeReq, season, nameQuery); }
+    if(pool.length===0 && league){ league = null; droppedFilters.push('League'); pool = applyFilters(position, ageMin, ageMax, league, club, budgetMax, gbeReq, season, nameQuery); }
+    if(pool.length===0 && gbeReq){ gbeReq = false; droppedFilters.push('Eligibility'); pool = applyFilters(position, ageMin, ageMax, league, club, budgetMax, gbeReq, season, nameQuery); }
+    if(pool.length===0 && position){ position = null; droppedFilters.push('Position'); pool = applyFilters(position, ageMin, ageMax, league, club, budgetMax, gbeReq, season, nameQuery); }
   }
 
-  const effectiveParsed = {...parsed, position, ageMin, ageMax, league, budgetMax, gbeReq, season};
+  const effectiveParsed = {...parsed, position, ageMin, ageMax, league, club, budgetMax, gbeReq, season, nameQuery};
   effectiveParsed.filters = rebuildFiltersDisplay(effectiveParsed);
 
   const sortKey = effectiveParsed.metric ? effectiveParsed.metric.key : null;
@@ -824,7 +993,7 @@ function filterAndSort(parsed){
     return {...p, statLabel, statVal};
   });
 
-  return {parsed: effectiveParsed, fellBack, droppedFilters, results, totalMatches};
+  return {parsed: effectiveParsed, fellBack, noNameMatch: false, droppedFilters, results, totalMatches};
 }
 
 async function runSearch(text){
@@ -1394,21 +1563,33 @@ async function runLiveBlend(text){
   // stays the base, and StatsBomb is only used to confirm the connection is real (see note).
   const response = await runSearch(text);
 
+  // Admin can turn individual sources off (Team & Invites → Data sources). A disabled source
+  // is skipped entirely — not attempted, not counted as a failure — so "X of Y reachable"
+  // stays meaningful against however many sources are actually turned on right now.
+  const enabled = {
+    statsbomb: isSourceEnabled('statsbomb'),
+    openfootball: isSourceEnabled('openfootball'),
+    footballdata: isSourceEnabled('footballdata'),
+    teamstats: isSourceEnabled('teamstats'),
+    eflsquads: isSourceEnabled('eflsquads'),
+  };
+  const sourcesTotal = Object.values(enabled).filter(Boolean).length;
+
   // DEF-09: these five sources are independent of each other — run concurrently rather than
   // one after another, so total latency is bounded by the slowest single source, not their sum.
   const [statsbombOk, formOk, standingsOk, teamStatsOk, realSquad] = await Promise.all([
-    loadLiveData().then(()=>true).catch(()=>false),
-    enrichWithClubForm(response.results),
-    enrichWithStandings(response.results),
-    enrichWithTeamStats(response.results),
-    realSquadFromParsed(response.parsed), // DEF-08: reuses the parse runSearch already resolved — no second AI call, no risk of the two disagreeing
+    enabled.statsbomb ? loadLiveData().then(()=>true).catch(()=>false) : Promise.resolve(false),
+    enabled.openfootball ? enrichWithClubForm(response.results) : Promise.resolve(false),
+    enabled.footballdata ? enrichWithStandings(response.results) : Promise.resolve(false),
+    enabled.teamstats ? enrichWithTeamStats(response.results) : Promise.resolve(false),
+    enabled.eflsquads ? realSquadFromParsed(response.parsed) : Promise.resolve(null), // DEF-08: reuses the parse runSearch already resolved — no second AI call, no risk of the two disagreeing
   ]);
   response.realSquad = realSquad;
   mergeRealSquadIntoResults(response);
   const squadOk = !!realSquad;
 
   const sourcesOk = [statsbombOk, formOk, standingsOk, teamStatsOk, squadOk].filter(Boolean).length;
-  return { response, failed: !statsbombOk, sourcesOk, sourcesTotal: 5 };
+  return { response, failed: enabled.statsbomb && !statsbombOk, sourcesOk, sourcesTotal };
 }
 
 function liveSourceLabel(sourcesOk, sourcesTotal){
@@ -1507,7 +1688,9 @@ function buildAssistantBlock(response, animate, sourceLabel){
   const block = document.createElement('div');
   block.className = 'assistant-block';
   const droppedList = response.droppedFilters || [];
-  const fallbackHtml = response.fellBack
+  const fallbackHtml = response.noNameMatch
+    ? `<div class="fallback-note">No player matching that name exists in this pool — showing zero results rather than substituting an unrelated "close" name.</div>`
+    : response.fellBack
     ? `<div class="fallback-note">${droppedList.length ? `No exact match, so ${droppedList.join(' and ')} ${droppedList.length>1?'were':'was'} relaxed to find these — the filters above now reflect what's actually applied.` : `Nothing matched at all — showing the full pool as a starting point.`}</div>`
     : '';
 
@@ -1537,6 +1720,7 @@ function buildAssistantBlock(response, animate, sourceLabel){
       <div class="add-filter-row" data-field="season"><label>Season</label>
         <select><option value="" disabled selected hidden>Season</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option></select>
       </div>
+      <div class="add-filter-row" data-field="club"><label>Club</label><input type="text" placeholder="e.g. Preston, Boro, PSV — nicknames OK"></div>
       <div class="add-filter-row" data-field="ageMin"><label>Min age</label><input type="number" min="6" max="50" placeholder="e.g. 18"></div>
       <div class="add-filter-row" data-field="ageMax"><label>Max age</label><input type="number" min="6" max="50" placeholder="e.g. 23"></div>
       <div class="add-filter-row" data-field="budgetMax"><label>Max budget (£M)</label><input type="number" min="0" step="0.1" placeholder="e.g. 2"></div>
@@ -1566,13 +1750,13 @@ function buildAssistantBlock(response, animate, sourceLabel){
   function renderFilterChips(){
     const fc = block.querySelector('.filter-chips');
     fc.innerHTML = '';
-    const hasAny = currentParsed.position || currentParsed.metric || currentParsed.ageMin || currentParsed.ageMax || currentParsed.league || currentParsed.season || currentParsed.budgetMax || currentParsed.gbeReq;
+    const hasAny = currentParsed.position || currentParsed.metric || currentParsed.ageMin || currentParsed.ageMax || currentParsed.league || currentParsed.club || currentParsed.nameQuery || currentParsed.season || currentParsed.budgetMax || currentParsed.gbeReq;
     const filters = hasAny ? currentParsed.filters : [{t:"Scope", v:"All positions — no specific filter caught", field:null}];
     filters.forEach((f,idx)=>{
       const c = document.createElement('div');
       c.className = 'fchip' + (f.gbe ? ' gbe' : '');
       c.style.animationDelay = animate ? (idx*90)+'ms' : '0ms';
-      const removable = {"Position":"position","Metric":"metric","Age":"age","League":"league","Season":"season","Budget":"budgetMax","Eligibility":"gbeReq"}[f.t];
+      const removable = {"Position":"position","Metric":"metric","Age":"age","League":"league","Club":"club","Name":"nameQuery","Season":"season","Budget":"budgetMax","Eligibility":"gbeReq"}[f.t];
       c.innerHTML = `${f.t}: <b>${f.v}</b>${removable ? '<span class="fchip-x">✕</span>' : ''}`;
       if(removable){
         c.querySelector('.fchip-x').onclick = ()=> applyFilterChange(removable, null);
@@ -1593,6 +1777,8 @@ function buildAssistantBlock(response, animate, sourceLabel){
     else if(field === 'age'){ newParsed.ageMin = null; newParsed.ageMax = null; } // Age chip covers both min and max together
     else if(field === 'league') newParsed.league = value;
     else if(field === 'season') newParsed.season = value;
+    else if(field === 'club') newParsed.club = value;
+    else if(field === 'nameQuery') newParsed.nameQuery = value;
     else if(field === 'budgetMax') newParsed.budgetMax = value;
     else if(field === 'gbeReq') newParsed.gbeReq = !!value;
     newParsed.filters = rebuildFiltersDisplay(newParsed);
@@ -1617,6 +1803,7 @@ function buildAssistantBlock(response, animate, sourceLabel){
     const posVal = panel.querySelector('[data-field="position"] select').value;
     const leagueVal = panel.querySelector('[data-field="league"] select').value;
     const seasonVal = panel.querySelector('[data-field="season"] select').value;
+    const clubValRaw = panel.querySelector('[data-field="club"] input').value.trim();
     const ageMinVal = panel.querySelector('[data-field="ageMin"] input').value;
     const ageVal = panel.querySelector('[data-field="ageMax"] input').value;
     const budgetVal = panel.querySelector('[data-field="budgetMax"] input').value;
@@ -1638,10 +1825,16 @@ function buildAssistantBlock(response, animate, sourceLabel){
       parsedBudget = parseFloat(budgetVal);
       if(isNaN(parsedBudget) || parsedBudget <= 0){ errEl.textContent = 'Budget must be a positive number.'; return; }
     }
+    let resolvedClub = null;
+    if(clubValRaw){
+      resolvedClub = detectClub(clubValRaw);
+      if(!resolvedClub){ errEl.textContent = `Couldn't match "${clubValRaw}" to a club in this pool.`; return; }
+    }
 
     const newParsed = {...currentParsed};
     if(posVal) newParsed.position = posVal;
     if(leagueVal) newParsed.league = leagueVal;
+    if(resolvedClub) newParsed.club = resolvedClub;
     if(seasonVal) newParsed.season = parseInt(seasonVal,10);
     if(parsedAgeMin !== null) newParsed.ageMin = parsedAgeMin;
     if(parsedAge !== null) newParsed.ageMax = parsedAge;
@@ -1978,6 +2171,35 @@ function slugifyClub(club){
 function accountsKeyFor(club){ return "recon-accounts-v1:" + slugifyClub(club); }
 function invitesKeyFor(club){ return "recon-invites-v1:" + slugifyClub(club); }
 function permissionsKeyFor(club){ return "recon-permissions-v1:" + slugifyClub(club); }
+function dataSourcesKeyFor(club){ return "recon-datasources-v1:" + slugifyClub(club); }
+
+/* Which of the 5 pre-configured sources are active for this club — an Admin toggle, NOT a
+   credential-entry screen. None of Recon's sources need a user-entered key (StatsBomb and
+   openfootball need none at all; football-data.org/API-Football's keys are already handled
+   server-side by the pre-fetch scripts) — so there's nothing here for an individual scout to
+   configure, only which already-available sources the club wants active. */
+const DATA_SOURCE_DEFS = [
+  {key:"statsbomb", label:"StatsBomb (match data)"},
+  {key:"openfootball", label:"openfootball (club form)"},
+  {key:"footballdata", label:"football-data.org (standings)"},
+  {key:"teamstats", label:"API-Football team stats"},
+  {key:"eflsquads", label:"efl-squads (real player names)"},
+];
+let enabledSources = {}; // { [key]: bool } — ONLY currentUser's club, once loaded
+let lastSaveFailedDataSources = false;
+
+async function loadDataSourcesForClub(club){
+  try{ const raw = await kvGet(dataSourcesKeyFor(club)); enabledSources = raw ? JSON.parse(raw) : {}; }
+  catch(e){ enabledSources = {}; }
+}
+async function saveDataSources(){
+  const ok = await kvSet(dataSourcesKeyFor(currentUser.club), JSON.stringify(enabledSources));
+  lastSaveFailedDataSources = !ok;
+  return ok;
+}
+function isSourceEnabled(key){
+  return enabledSources[key] !== false; // default: enabled, until an Admin turns it off
+}
 
 function randomSaltHex(){
   const arr = new Uint8Array(16);
@@ -2227,6 +2449,25 @@ async function renderTeamView(){
   const roleSelect = document.getElementById('visibility-role-select');
   roleSelect.onchange = ()=> renderVisibilityForRole(roleSelect.value);
   renderVisibilityForRole(roleSelect.value);
+
+  const dsWrap = document.getElementById('data-sources-controls');
+  dsWrap.innerHTML = '';
+  DATA_SOURCE_DEFS.forEach(({key, label})=>{
+    const row = document.createElement('div');
+    row.className = 'toggle-row';
+    row.innerHTML = `<div><div class="tr-sub" style="font-size:12px; color:var(--text);">${label}</div></div>`;
+    const sw = document.createElement('div');
+    sw.className = 'switch' + (isSourceEnabled(key) ? ' on' : '');
+    sw.innerHTML = '<div class="knob"></div>';
+    sw.onclick = async ()=>{
+      const newVal = !isSourceEnabled(key);
+      enabledSources[key] = newVal;
+      await saveDataSources();
+      sw.classList.toggle('on', newVal);
+    };
+    row.appendChild(sw);
+    dsWrap.appendChild(row);
+  });
 }
 
 document.getElementById('invite-submit').onclick = async ()=>{
@@ -2268,6 +2509,7 @@ document.getElementById('invite-submit').onclick = async ()=>{
 async function enterApp(){
   document.getElementById('auth-gate').style.display = 'none';
   await loadPermissionsForClub(currentUser.club);
+  await loadDataSourcesForClub(currentUser.club);
   applyCurrentUserToUI();
   resetChatToEmpty();
   await loadThreads();
