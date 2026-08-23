@@ -196,6 +196,10 @@
   .auth-error{ color:var(--brick); font-size:12px; min-height:16px; margin:-4px 0 10px; }
   .auth-btn{ width:100%; background:var(--gold); color:#171308; border:none; border-radius:12px; padding:14px; font-family:'Inter',sans-serif; font-weight:700; font-size:14px; cursor:pointer; margin-top:6px; }
   .auth-btn[disabled]{ opacity:.5; }
+  .auth-divider{ display:flex; align-items:center; gap:10px; margin:16px 0; color:var(--text-dim); font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+  .auth-divider::before, .auth-divider::after{ content:''; flex:1; height:1px; background:var(--line); }
+  .sso-btn{ width:100%; background:var(--surface-2); color:var(--text-dim); border:1px dashed var(--line); border-radius:12px; padding:13px; font-family:'Inter',sans-serif; font-weight:600; font-size:13px; cursor:not-allowed; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .sso-note{ font-size:10.5px; color:var(--text-dim); text-align:center; margin-top:7px; line-height:1.5; }
   .auth-switch{ text-align:center; margin-top:20px; font-size:12.5px; color:var(--text-muted); }
   .auth-switch b{ color:var(--gold); cursor:pointer; font-weight:600; }
   .auth-link-small{ text-align:right; font-size:11.5px; color:var(--text-dim); margin:-6px 0 16px; cursor:pointer; }
@@ -211,6 +215,10 @@
   .btn-danger-sm{ font-size:11px; color:var(--brick); border:1px solid rgba(178,75,66,.4); background:rgba(178,75,66,.08); padding:6px 10px; border-radius:8px; cursor:pointer; flex:0 0 auto; }
   .btn-ghost-sm{ font-size:11px; color:var(--text-muted); border:1px solid var(--line); background:var(--surface-2); padding:6px 10px; border-radius:8px; cursor:pointer; flex:0 0 auto; }
   .team-empty{ font-size:12px; color:var(--text-dim); padding:8px 0; }
+  .audit-row{ padding:8px 0; border-bottom:1px solid var(--line); font-size:11.5px; }
+  .audit-row:last-child{ border-bottom:none; }
+  .audit-row .audit-desc{ color:var(--text); }
+  .audit-row .audit-ts{ color:var(--text-dim); font-family:'IBM Plex Mono',monospace; font-size:10px; margin-top:2px; }
   .real-section{ margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
   .real-section-head{ display:flex; align-items:center; gap:7px; margin-bottom:9px; }
   .real-section-head .rlabel{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-dim); }
@@ -254,6 +262,14 @@
       <div class="auth-link-small" id="go-forgot">Forgot password?</div>
       <button class="auth-btn" id="login-submit">Sign in</button>
       <div class="auth-switch">Have an invite code? <b id="go-activate">Activate your account</b></div>
+
+      <div class="auth-divider">or</div>
+      <button class="sso-btn" disabled>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Sign in with your club's SSO
+      </button>
+      <div class="sso-note">Not available in this demo — production connects directly to your identity provider (Microsoft Entra, Google Workspace, or similar), so Recon never stores a password for SSO-enabled clubs at all.</div>
+
       <div class="auth-note">This demo hashes your password in your browser before storing it — but there's no server to check it against, so it isn't real security. Don't reuse a password you use elsewhere.</div>
     </div>
     <div class="auth-panel" id="panel-activate">
@@ -434,6 +450,7 @@
               <option>Academy</option>
             </select>
           </div>
+          <div class="auth-field"><label>Access expires (optional — e.g. loan-period-only staff)</label><input id="invite-expiry" type="date"></div>
           <div class="auth-error" id="invite-error"></div>
           <button class="auth-btn" id="invite-submit" style="margin-bottom:6px;">Send invite</button>
           <div id="invite-code-result"></div>
@@ -460,6 +477,10 @@
           <div class="section-label">Data sources</div>
           <div id="data-sources-controls"></div>
           <div class="auth-note">Turning a source off skips it entirely for everyone at this club — it won't be attempted or counted against "sources reachable." None of these need a personal API key from anyone; they're pre-configured for the whole club, this just controls which ones are active.</div>
+
+          <div class="section-label">Audit log</div>
+          <div id="audit-log-list"></div>
+          <div class="auth-note">Every sign-in, sign-out, failed attempt, lockout, role change, revoke, invite, and access-expiry event for this club — one log, not a separate system, per the audit requirement.</div>
         </div>
       </div>
 
@@ -664,6 +685,19 @@ function levenshtein(a, b){
   return dp[m][n];
 }
 
+// Recon's own filter vocabulary — these words already have a confirmed meaning elsewhere in
+// the query (position/metric/etc.), so they should never be fuzzy-tested against club
+// nicknames. This is what "wingers" colliding with "tigers" (Hull City) at edit-distance 2
+// actually was: a real recognized keyword getting re-interpreted as an attempted club name.
+const RESERVED_FILTER_WORDS = new Set([
+  "centre","center","back","backs","full","wing","winger","wingers","wide","forward","forwards",
+  "striker","strikers","midfield","midfielder","midfielders","defender","defenders","defence","defense",
+  "central","aerial","underperform","overperform","outperform","expected","goals","passing","accuracy",
+  "turnover","turnovers","creativ","creative","creation","tackle","tackles","tackling","dribble","dribbles",
+  "dribbling","interception","interceptions","clinical","struggling","budget","season","eligible","eligibility",
+  "league","championship","division","players","player","under","over","above","below","aged","years",
+]);
+
 function detectClub(text){
   const lower = text.toLowerCase();
   // Fast path: official name or a known nickname appears as a substring — no false positives.
@@ -674,7 +708,7 @@ function detectClub(text){
   // Fallback: genuine typo tolerance — fuzzy-match each word/short phrase in the query against
   // every club name and alias, accept only a close, confident match (short edit distance
   // relative to word length) so this doesn't start matching unrelated words.
-  const words = lower.split(/\s+/).filter(w=>w.length>=4);
+  const words = lower.split(/\s+/).filter(w=>w.length>=4 && !RESERVED_FILTER_WORDS.has(w));
   let best = null, bestDist = Infinity;
   for(const [official, aliases] of Object.entries(CLUB_ALIASES)){
     const candidates = [official.toLowerCase(), ...aliases];
@@ -823,18 +857,18 @@ Respond with ONLY a JSON object, no other text, no markdown fences, in exactly t
   "gbeRequired": true only if the query explicitly asks about visa/work-permit/GBE/ESC eligibility, else false
 }`;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  // IMPORTANT: replace this with YOUR actual Cloudflare Worker URL once deployed —
+  // see the deployment steps for exactly where to find it and how to swap it in.
+  const NLQ_PROXY_URL = "https://my-pm-worker.dkelly668.workers.dev/";
+
+  const response = await fetch(NLQ_PROXY_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 300,
-      system,
-      messages: [{ role: "user", content: text }]
-    })
+    body: JSON.stringify({ system, userText: text })
   });
-  if(!response.ok) throw new Error('NLQ API HTTP ' + response.status);
+  if(!response.ok) throw new Error('NLQ proxy HTTP ' + response.status);
   const data = await response.json();
+  if(data.error) throw new Error('NLQ proxy error: ' + data.error);
   const raw = (data.content || []).map(b=>b.text||'').join('');
   const cleaned = raw.replace(/```json|```/g,'').trim();
   const parsed = JSON.parse(cleaned);
@@ -1391,8 +1425,12 @@ async function realSquadFromParsed(parsed){
     const bucket = REAL_POSITION_MAP[parsed.position];
     if(bucket) pool = pool.filter(p => p.position === bucket);
   }
+  if(parsed.ageMin) pool = pool.filter(p => p.age && p.age >= parsed.ageMin);
   if(parsed.ageMax) pool = pool.filter(p => p.age && p.age <= parsed.ageMax);
-  // budget/GBE/most performance metrics have no equivalent in this real-identity-only source
+  if(parsed.league) pool = pool.filter(p => CLUB_LEAGUE[p.club] === parsed.league); // efl-squads is Championship-only today, so a non-Championship league search correctly returns zero real matches, not everyone
+  if(parsed.club) pool = pool.filter(p => p.club === parsed.club);
+  if(parsed.nameQuery) pool = pool.filter(p => p.name.toLowerCase().includes(parsed.nameQuery.toLowerCase())); // same exact-substring rule as the main name search — no fuzzy substitution here either
+  // budget/GBE/performance metrics still have no equivalent in this real-identity-only source — that part of the original note still holds
 
   pool = pool.slice().sort((a,b)=> (a.age||99) - (b.age||99));
   return { total: pool.length, players: pool, coarsePosition: !!parsed.position }; // full list now, not a 3-sample — merged into main pagination
@@ -2021,7 +2059,21 @@ function openProfile(p){
 }
 
 /* ---------------- Secondary views (player profile / account / settings / team) ---------------- */
+/* Story #12: a real block, not just a hidden button. The Team screen's drawer entry is
+   already hidden from non-Admins via CSS, but this is the actual enforcement — if anyone
+   reaches this code path (DOM tampering, a future feature reusing this pattern, etc.) without
+   the right role, they're stopped here, shown why, and the attempt is logged. */
+function requireRole(allowedRoles, featureName){
+  if(!currentUser || !allowedRoles.includes(currentUser.role)){
+    if(currentUser) logAuditEvent(currentUser.club, 'access_blocked', { username: currentUser.username, role: currentUser ? currentUser.role : '(none)', feature: featureName });
+    alert(`"${featureName}" requires ${allowedRoles.join(' or ')} access — your role (${currentUser ? currentUser.role : 'none'}) doesn't include it.`);
+    return false;
+  }
+  return true;
+}
+
 function openSecondary(name){
+  if(name === 'team' && !requireRole(['Admin'], 'Team & Invites')) return;
   screen.classList.remove('view-profile','view-account','view-settings','view-team');
   screen.classList.add('secondary-open', 'view-'+name);
   closeDrawer();
@@ -2172,6 +2224,51 @@ function accountsKeyFor(club){ return "recon-accounts-v1:" + slugifyClub(club); 
 function invitesKeyFor(club){ return "recon-invites-v1:" + slugifyClub(club); }
 function permissionsKeyFor(club){ return "recon-permissions-v1:" + slugifyClub(club); }
 function dataSourcesKeyFor(club){ return "recon-datasources-v1:" + slugifyClub(club); }
+function auditLogKeyFor(club){ return "recon-auditlog-v1:" + slugifyClub(club); }
+
+/* ---------------- Story #15: audit log ---------------- */
+/* Every login, logout, failed attempt, lockout, role change, revoke, invite, and licence
+   expiry event lives in ONE log per club — same audit trail, not a separate disconnected
+   system, per the story's explicit requirement. */
+let auditLog = []; // ONLY currentUser's club, once loaded
+const AUDIT_MAX_ENTRIES = 500; // keep the log bounded rather than growing forever
+
+async function loadAuditLogForClub(club){
+  try{ const raw = await kvGet(auditLogKeyFor(club)); auditLog = raw ? JSON.parse(raw) : []; }
+  catch(e){ auditLog = []; }
+}
+
+// Takes an explicit club since failed-login events happen BEFORE currentUser is set — there's
+// no "current club" yet at that point, only whichever club the attempted username resolved to.
+async function logAuditEvent(club, type, detail){
+  if(!club) return; // can't attribute an event to a club we can't identify (e.g. a totally unknown email) — nothing safe to write
+  let log;
+  try{ const raw = await kvGet(auditLogKeyFor(club)); log = raw ? JSON.parse(raw) : []; }
+  catch(e){ log = []; }
+  log.push({ type, detail, ts: Date.now() });
+  if(log.length > AUDIT_MAX_ENTRIES) log = log.slice(log.length - AUDIT_MAX_ENTRIES);
+  if(currentUser && currentUser.club === club) auditLog = log; // keep the in-memory copy in sync if it's the active club
+  await kvSet(auditLogKeyFor(club), JSON.stringify(log));
+}
+
+const AUDIT_LABELS = {
+  login_success: (d)=> `${d.username} signed in`,
+  login_failed: (d)=> `Failed sign-in attempt for ${d.username}`,
+  login_locked: (d)=> `${d.username} blocked — too many failed attempts`,
+  logout: (d)=> `${d.username} signed out`,
+  session_expired: (d)=> `${d.username}'s session expired from inactivity`,
+  role_change: (d)=> `${d.by} made ${d.target} ${d.newRole}`,
+  access_revoked: (d)=> `${d.by} revoked ${d.target}'s access`,
+  access_expired: (d)=> `${d.username}'s access expired automatically (licence window ended)`,
+  invite_created: (d)=> `${d.by} invited ${d.email} as ${d.role}`,
+  invite_activated: (d)=> `${d.username} activated their invite`,
+  access_blocked: (d)=> `${d.username} (${d.role}) was blocked from "${d.feature}"`,
+  expiry_set: (d)=> `${d.by} set ${d.target}'s access to expire ${d.expiry}`,
+};
+function describeAuditEvent(entry){
+  const fn = AUDIT_LABELS[entry.type];
+  return fn ? fn(entry.detail) : entry.type;
+}
 
 /* Which of the 5 pre-configured sources are active for this club — an Admin toggle, NOT a
    credential-entry screen. None of Recon's sources need a user-entered key (StatsBomb and
@@ -2347,6 +2444,20 @@ async function renderTeamView(){
   invites = await loadInvitesForClub(currentUser.club); // this admin's own club only
   await loadAccountsForClub(currentUser.club);           // refresh in case another tab/session changed it
 
+  // Story #13: "access never outlives what's been paid for" — check every member's expiry the
+  // moment an Admin actually looks at this screen. Honest limitation: without a real backend,
+  // this can't run on a schedule in the background — it only actually triggers the next time
+  // someone (this Admin, or the expired user trying to log in) causes a check to happen.
+  let anyExpired = false;
+  for(const m of Object.values(accounts)){
+    if(m.expiresAt && m.expiresAt < Date.now() && m.username !== currentUser.username){
+      delete accounts[m.username];
+      anyExpired = true;
+      await logAuditEvent(currentUser.club, 'access_expired', { username: m.username });
+    }
+  }
+  if(anyExpired) await saveAccounts();
+
   const pending = Object.values(invites).filter(i=> !i.used);
   pendingWrap.innerHTML = pending.length ? '' : '<div class="team-empty">No pending invites.</div>';
   pending.forEach(inv=>{
@@ -2359,7 +2470,7 @@ async function renderTeamView(){
     nameEl.textContent = inv.displayName; // DEF-02: textContent, never innerHTML, for user-supplied text
     const subEl = document.createElement('div');
     subEl.className = 'tm-sub';
-    subEl.textContent = `${inv.email} · ${inv.role} · code ${inv.code}`;
+    subEl.textContent = `${inv.email} · ${inv.role} · code ${inv.code}${inv.expiresAt ? ' · expires '+new Date(inv.expiresAt).toLocaleDateString() : ''}`;
     mid.appendChild(nameEl);
     mid.appendChild(subEl);
     row.appendChild(mid);
@@ -2371,6 +2482,7 @@ async function renderTeamView(){
   members.forEach(m=>{
     const row = document.createElement('div');
     row.className = 'team-row';
+    row.style.flexWrap = 'wrap';
     const isSelf = m.username === currentUser.username;
     const mid = document.createElement('div');
     mid.className = 'tm-mid';
@@ -2379,7 +2491,10 @@ async function renderTeamView(){
     nameEl.textContent = m.displayName; // DEF-02: textContent, never innerHTML
     const subEl = document.createElement('div');
     subEl.className = 'tm-sub';
-    subEl.textContent = `${m.username} · ${m.role}`;
+    const statusText = m.expiresAt
+      ? `Expires ${new Date(m.expiresAt).toLocaleDateString()}`
+      : 'No expiry';
+    subEl.textContent = `${m.username} · ${m.role} · ${statusText}`;
     mid.appendChild(nameEl);
     mid.appendChild(subEl);
     row.appendChild(mid);
@@ -2397,9 +2512,11 @@ async function renderTeamView(){
             setTimeout(()=>{ if(promoteBtn.isConnected){ promoteBtn.dataset.confirming='false'; promoteBtn.textContent='Make Admin'; } }, 3000);
             return;
           }
+          const oldRole = m.role;
           m.role = 'Admin';
           accounts[m.username] = m;
           await saveAccounts();
+          await logAuditEvent(currentUser.club, 'role_change', { by: currentUser.username, target: m.username, newRole: 'Admin' });
           renderTeamView();
         };
         row.appendChild(promoteBtn);
@@ -2417,9 +2534,33 @@ async function renderTeamView(){
         }
         delete accounts[m.username];
         await saveAccounts();
+        await logAuditEvent(currentUser.club, 'access_revoked', { by: currentUser.username, target: m.username });
         renderTeamView();
       };
       row.appendChild(btn);
+
+      // Story #14: let an Admin set/change an existing member's access-expiry window, not just at invite time.
+      const expiryRow = document.createElement('div');
+      expiryRow.style.cssText = 'width:100%; display:flex; gap:6px; align-items:center; margin-top:6px;';
+      const expiryInput = document.createElement('input');
+      expiryInput.type = 'date';
+      expiryInput.style.cssText = 'flex:1; background:var(--surface-2); border:1px solid var(--line); border-radius:6px; padding:5px 8px; color:var(--text); font-size:11px;';
+      if(m.expiresAt) expiryInput.value = new Date(m.expiresAt).toISOString().slice(0,10);
+      const expirySetBtn = document.createElement('button');
+      expirySetBtn.className = 'btn-ghost-sm';
+      expirySetBtn.textContent = 'Set expiry';
+      expirySetBtn.onclick = async ()=>{
+        const val = expiryInput.value;
+        const newExpiry = val ? new Date(val + 'T23:59:59').getTime() : null;
+        m.expiresAt = newExpiry;
+        accounts[m.username] = m;
+        await saveAccounts();
+        await logAuditEvent(currentUser.club, 'expiry_set', { by: currentUser.username, target: m.username, expiry: newExpiry ? new Date(newExpiry).toLocaleDateString() : 'none (cleared)' });
+        renderTeamView();
+      };
+      expiryRow.appendChild(expiryInput);
+      expiryRow.appendChild(expirySetBtn);
+      row.appendChild(expiryRow);
     }
     teamWrap.appendChild(row);
   });
@@ -2468,12 +2609,32 @@ async function renderTeamView(){
     row.appendChild(sw);
     dsWrap.appendChild(row);
   });
+
+  // Story #15: render the audit log, most recent first. Reloaded fresh each time this screen
+  // opens so an Admin always sees events from other sessions/tabs too, not a stale snapshot.
+  await loadAuditLogForClub(currentUser.club);
+  const auditWrap = document.getElementById('audit-log-list');
+  auditWrap.innerHTML = auditLog.length ? '' : '<div class="team-empty">No audit events yet.</div>';
+  auditLog.slice().reverse().slice(0, 100).forEach(entry=>{
+    const row = document.createElement('div');
+    row.className = 'audit-row';
+    const desc = document.createElement('div');
+    desc.className = 'audit-desc';
+    desc.textContent = describeAuditEvent(entry); // textContent — event details ultimately trace back to user-supplied names/emails
+    const ts = document.createElement('div');
+    ts.className = 'audit-ts';
+    ts.textContent = new Date(entry.ts).toLocaleString();
+    row.appendChild(desc);
+    row.appendChild(ts);
+    auditWrap.appendChild(row);
+  });
 }
 
 document.getElementById('invite-submit').onclick = async ()=>{
   const name = document.getElementById('invite-name').value.trim();
   const email = document.getElementById('invite-email').value.trim().toLowerCase();
   const role = document.getElementById('invite-role').value;
+  const expiryVal = document.getElementById('invite-expiry').value; // "YYYY-MM-DD" or ""
   const errEl = document.getElementById('invite-error');
   errEl.textContent = '';
 
@@ -2483,13 +2644,22 @@ document.getElementById('invite-submit').onclick = async ()=>{
   const existingInvite = Object.values(invites).find(i=> i.email === email && !i.used);
   if(existingInvite){ errEl.textContent = 'An invite is already pending for that email.'; return; }
 
+  let expiresAt = null;
+  if(expiryVal){
+    const parsed = new Date(expiryVal + 'T23:59:59').getTime();
+    if(isNaN(parsed) || parsed <= Date.now()){ errEl.textContent = 'Expiry date must be in the future.'; return; }
+    expiresAt = parsed;
+  }
+
   let code = generateInviteCode();
   while(invites[code]) code = generateInviteCode(); // DEF-14: guarantee no collision, however unlikely
-  invites[code] = { code, email, displayName: name, role, club: currentUser.club, invitedBy: currentUser.username, used: false, createdAt: Date.now() };
+  invites[code] = { code, email, displayName: name, role, club: currentUser.club, invitedBy: currentUser.username, used: false, createdAt: Date.now(), expiresAt };
   await saveInvites();
+  await logAuditEvent(currentUser.club, 'invite_created', { by: currentUser.username, email, role });
 
   document.getElementById('invite-name').value = '';
   document.getElementById('invite-email').value = '';
+  document.getElementById('invite-expiry').value = '';
   const resultEl = document.getElementById('invite-code-result');
   resultEl.innerHTML = '';
   const box = document.createElement('div');
@@ -2510,6 +2680,9 @@ async function enterApp(){
   document.getElementById('auth-gate').style.display = 'none';
   await loadPermissionsForClub(currentUser.club);
   await loadDataSourcesForClub(currentUser.club);
+  await loadAuditLogForClub(currentUser.club);
+  markActivity();
+  startSessionWatch();
   applyCurrentUserToUI();
   resetChatToEmpty();
   await loadThreads();
@@ -2586,6 +2759,9 @@ document.getElementById('reset-submit').onclick = async ()=>{
   document.getElementById('login-error').textContent = 'Password reset — sign in with your new password.';
 };
 
+const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+
 document.getElementById('login-submit').onclick = async ()=>{
   const uname = document.getElementById('login-username').value.trim().toLowerCase();
   const pass = document.getElementById('login-password').value;
@@ -2599,10 +2775,48 @@ document.getElementById('login-submit').onclick = async ()=>{
   await loadAccountsForClub(club); // only this one club's accounts ever touch this browser
   const acct = accounts[uname];
   if(!acct){ errEl.textContent = GENERIC_ERROR; return; }
+
+  // Story #10: throttle after repeated failures. This message is intentionally distinct from
+  // "incorrect email or password" — saying "temporarily locked" doesn't leak whether THIS
+  // specific password attempt would have been right, just that the account exists and has had
+  // too many recent failures, which is an acceptable, common pattern (not account enumeration).
+  // Story #13: licence-tied access window — expired means expired, regardless of password correctness.
+  if(acct.expiresAt && acct.expiresAt < Date.now()){
+    errEl.textContent = 'Your access window has ended. Contact your club Admin.';
+    await logAuditEvent(club, 'access_expired', { username: uname });
+    return;
+  }
+
+  if(acct.lockedUntil && acct.lockedUntil > Date.now()){
+    const minsLeft = Math.ceil((acct.lockedUntil - Date.now()) / 60000);
+    errEl.textContent = `Too many failed attempts. Try again in ${minsLeft} minute${minsLeft===1?'':'s'}.`;
+    await logAuditEvent(club, 'login_locked', { username: uname });
+    return;
+  }
+
   const hash = await hashPassword(pass, acct.salt);
-  if(hash !== acct.hash){ errEl.textContent = GENERIC_ERROR; return; }
+  if(hash !== acct.hash){
+    acct.failedAttempts = (acct.failedAttempts || 0) + 1;
+    if(acct.failedAttempts >= MAX_FAILED_LOGIN_ATTEMPTS){
+      acct.lockedUntil = Date.now() + LOGIN_LOCKOUT_MS;
+      acct.failedAttempts = 0;
+    }
+    accounts[uname] = acct;
+    await kvSet(accountsKeyFor(club), JSON.stringify(accounts)); // direct write — currentUser isn't set yet, so saveAccounts()'s club-from-currentUser wouldn't work here
+    await logAuditEvent(club, 'login_failed', { username: uname });
+    errEl.textContent = GENERIC_ERROR;
+    return;
+  }
+
+  // Success — reset throttling state and log in.
+  acct.failedAttempts = 0;
+  acct.lockedUntil = null;
+  accounts[uname] = acct;
+  await kvSet(accountsKeyFor(club), JSON.stringify(accounts));
   currentUser = acct;
   await kvSet(SESSION_KEY, acct.username);
+  await logAuditEvent(club, 'login_success', { username: uname });
+  markActivity();
   enterApp();
 };
 
@@ -2618,6 +2832,7 @@ document.getElementById('activate-submit').onclick = async ()=>{
   const clubInvites = await loadInvitesForClub(club); // only this one club's invites ever touch this browser
   const invite = clubInvites[code];
   if(!invite || invite.used){ errEl.textContent = 'That invite code is invalid, already used, or the club name doesn\'t match.'; return; }
+  if(invite.expiresAt && invite.expiresAt < Date.now()){ errEl.textContent = 'This invite\'s access window has already passed — ask your Admin for a new one.'; return; }
   if(pass.length < 8){ errEl.textContent = 'Password must be at least 8 characters.'; return; }
   if(pass !== pass2){ errEl.textContent = "Passwords don't match."; return; }
 
@@ -2626,7 +2841,7 @@ document.getElementById('activate-submit').onclick = async ()=>{
 
   const salt = randomSaltHex();
   const hash = await hashPassword(pass, salt);
-  const acct = { username: invite.email, displayName: invite.displayName, club: invite.club, role: invite.role, salt, hash, createdAt: Date.now() };
+  const acct = { username: invite.email, displayName: invite.displayName, club: invite.club, role: invite.role, salt, hash, createdAt: Date.now(), expiresAt: invite.expiresAt || null, failedAttempts: 0, lockedUntil: null };
   accounts[invite.email] = acct;
   invite.used = true;
   clubInvites[code] = invite;
@@ -2634,13 +2849,25 @@ document.getElementById('activate-submit').onclick = async ()=>{
   currentUser = acct; // needed before save so saveAccounts()/saveInvites() know which club store to write
   await saveAccounts();
   await saveInvites();
+  await logAuditEvent(club, 'invite_activated', { username: invite.email });
   emailIndex[invite.email] = club;
   await saveEmailIndex();
   await kvSet(SESSION_KEY, invite.email);
   enterApp();
 };
 
-document.getElementById('sign-out-row').onclick = async ()=>{
+const SESSION_INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes
+let lastActivityTs = Date.now();
+let sessionCheckInterval = null;
+
+function markActivity(){ lastActivityTs = Date.now(); }
+['click','keydown','touchstart'].forEach(evt=> document.addEventListener(evt, markActivity, {passive:true}));
+
+async function signOut(reason){
+  if(currentUser){
+    if(reason === 'expired') await logAuditEvent(currentUser.club, 'session_expired', { username: currentUser.username });
+    else await logAuditEvent(currentUser.club, 'logout', { username: currentUser.username });
+  }
   await kvSet(SESSION_KEY, '');
   pendingQueue = []; // any query queued while offline belonged to this user's session — don't let it land in the next user's history
   accounts = {};
@@ -2649,7 +2876,22 @@ document.getElementById('sign-out-row').onclick = async ()=>{
   currentUser = null;
   closeSecondary();
   showAuthGate();
-};
+  if(reason === 'expired'){
+    const errEl = document.getElementById('login-error');
+    if(errEl){ errEl.style.color = ''; errEl.textContent = 'Your session expired after 30 minutes of inactivity — sign in again.'; }
+  }
+}
+
+function startSessionWatch(){
+  if(sessionCheckInterval) clearInterval(sessionCheckInterval);
+  sessionCheckInterval = setInterval(()=>{
+    if(currentUser && Date.now() - lastActivityTs > SESSION_INACTIVITY_MS){
+      signOut('expired');
+    }
+  }, 30000); // check every 30s — fine-grained enough without being wasteful
+}
+
+document.getElementById('sign-out-row').onclick = ()=> signOut('manual');
 
 async function bootAuth(){
   await loadEmailIndex();
