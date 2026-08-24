@@ -88,6 +88,8 @@
   .fallback-note{ font-size:12px; color:var(--text-muted); background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:9px 12px; margin-bottom:10px; line-height:1.5; }
   .nlq-summary{ font-size:13px; color:var(--text); background:linear-gradient(135deg, rgba(212,166,58,.08), rgba(212,166,58,.02)); border:1px solid rgba(212,166,58,.25); border-radius:10px; padding:11px 13px; margin-bottom:12px; line-height:1.55; }
   .nlq-summary .nlq-summary-label{ font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--gold); font-weight:700; margin-bottom:4px; display:block; }
+  .nlq-summary-loading{ color:var(--text-dim); font-style:italic; animation:nlqPulse 1.4s ease-in-out infinite; }
+  @keyframes nlqPulse{ 0%,100%{ opacity:.5; } 50%{ opacity:1; } }
 
   .breakdown-label{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-dim); margin-bottom:8px; display:flex; align-items:center; gap:6px;}
   .breakdown-label .pulse{ width:5px;height:5px;border-radius:50%; background:var(--sage); box-shadow:0 0 0 0 rgba(95,165,122,.6); animation:pulse 1.6s infinite; }
@@ -952,7 +954,7 @@ async function generateResultsSummary(response, parsed){
     stat: p.statLabel && p.statVal !== undefined ? `${p.statLabel}: ${p.statVal}` : undefined,
   }));
 
-  const system = `You are summarizing football scouting search results for a recruitment tool. Given the search criteria and a sample of matching players, write ONE short paragraph (2-3 sentences, plain prose, no markdown, no bullet points) that a scout would find useful at a glance — e.g. the overall value/age range, and 1-2 standout players if something is genuinely notable (unusually good value, right at budget, youngest/oldest, best on the ranked stat). Only state facts present in the data given — never invent a stat, a fact, or a player not in the list. If nothing stands out, a plain factual summary is fine — don't force a "standout" that isn't really there.`;
+  const system = `You are writing an EXECUTIVE SUMMARY of football scouting search results for a recruitment decision-maker — think "what would you tell your Head of Recruitment in one breath before they read the full list." Write ONE short paragraph (2-3 sentences, plain prose, no markdown, no bullet points). Lead with the headline: how many matched and the key constraint that shaped the set (budget/age/league). Then, only if genuinely notable, name 1-2 standout players and why (unusually good value, right at budget, best on the ranked stat) — don't manufacture a standout if there isn't a real one, a plain factual lead is fine on its own. Only state facts present in the data given — never invent a stat, a fact, or a player not in the list. Write for someone scanning quickly, not someone who wants prose.`;
 
   const userText = JSON.stringify({
     totalMatches: response.totalMatches,
@@ -1817,7 +1819,7 @@ function buildAssistantBlock(response, animate, sourceLabel){
         <button class="add-filter-apply" style="flex:1;" id="add-filter-apply-btn">Apply</button>
       </div>
     </div>
-    <div class="nlq-summary" style="display:none;"></div>
+    <div class="nlq-summary"><span class="nlq-summary-label">Executive Summary</span><div class="nlq-summary-loading">Generating…</div></div>
     <div class="results-meta"><div class="results-count"></div>
       <div style="display:flex; align-items:center; gap:6px;"><span style="font-size:10.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em;">Sort</span><select class="sort-select">${sortOptionsHtml}</select></div>
     </div>
@@ -2017,16 +2019,20 @@ function buildAssistantBlock(response, animate, sourceLabel){
 
   function refreshSummary(){
     const summaryEl = block.querySelector('.nlq-summary');
-    if(summaryEl){ summaryEl.style.display = 'none'; summaryEl.innerHTML = ''; } // never show a stale summary from before the edit while the new one loads
+    if(summaryEl){
+      // Reset to the loading state immediately — visible right away, before results even
+      // finish rendering, rather than staying hidden until the AI call resolves.
+      summaryEl.style.display = 'block';
+      summaryEl.innerHTML = `<span class="nlq-summary-label">Executive Summary</span><div class="nlq-summary-loading">Generating…</div>`;
+    }
     generateResultsSummary(currentResponse, currentParsed).then(summary=>{
-      if(!summary) return;
       const el = block.querySelector('.nlq-summary');
       if(!el) return; // block may have been replaced before this resolved
-      el.innerHTML = `<span class="nlq-summary-label">Summary</span>`;
+      if(!summary){ el.style.display = 'none'; return; } // nothing to say, or the AI proxy isn't reachable — hide cleanly rather than leave "Generating…" stuck forever
+      el.innerHTML = `<span class="nlq-summary-label">Executive Summary</span>`;
       const p = document.createElement('div');
       p.textContent = summary; // textContent — this is AI-generated text, never trust it as safe HTML
       el.appendChild(p);
-      el.style.display = 'block';
     });
   }
 
