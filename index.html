@@ -86,8 +86,11 @@
   .assistant-tag span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-dim); }
 
   .fallback-note{ font-size:12px; color:var(--text-muted); background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:9px 12px; margin-bottom:10px; line-height:1.5; }
-  .nlq-summary{ font-size:13px; color:var(--text); background:linear-gradient(135deg, rgba(212,166,58,.08), rgba(212,166,58,.02)); border:1px solid rgba(212,166,58,.25); border-radius:10px; padding:11px 13px; margin-bottom:12px; line-height:1.55; }
-  .nlq-summary .nlq-summary-label{ font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--gold); font-weight:700; margin-bottom:4px; display:block; }
+  .query-briefing{ margin-bottom:14px; }
+  .nlq-summary{ font-size:13px; color:var(--text); padding:0 0 10px; line-height:1.55; }
+  .filter-chips-label{ font-size:9.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+  .filter-chips-label .pulse{ width:4px;height:4px;border-radius:50%; background:var(--sage); box-shadow:0 0 0 0 rgba(95,165,122,.6); animation:pulse 1.6s infinite; }
+  .nlq-summary .nlq-summary-label{ font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); font-weight:700; margin-bottom:4px; display:block; }
   .nlq-summary-loading{ color:var(--text-dim); font-style:italic; animation:nlqPulse 1.4s ease-in-out infinite; }
   @keyframes nlqPulse{ 0%,100%{ opacity:.5; } 50%{ opacity:1; } }
 
@@ -237,10 +240,6 @@
   .diag-dot.fail{ background:var(--brick); }
   .diag-name{ font-weight:600; }
   .diag-detail{ color:var(--text-dim); font-size:11px; margin-top:2px; word-break:break-word; }
-  .fchip-x{ margin-left:6px; opacity:.6; cursor:pointer; font-weight:700; }
-  .fchip-x:hover{ opacity:1; color:var(--brick); }
-  .fchip-add{ font-family:'IBM Plex Mono',monospace; font-size:11px; padding:6px 10px; border-radius:8px; background:var(--surface-2); border:1px dashed var(--line); cursor:pointer; color:var(--text-muted); }
-  .fchip-add:hover{ border-color:var(--gold); color:var(--gold); }
   .add-filter-panel{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:12px; margin:8px 0 4px; display:none; }
   .add-filter-panel.show{ display:block; }
   .add-filter-row{ margin-bottom:9px; }
@@ -1015,12 +1014,15 @@ function rebuildFiltersDisplay(parsed){
 /* Every prior message treated each new typed query as a completely standalone search, with
    zero memory of what was already active. "Remove the budget filter" would silently discard
    position/league/age/everything else too, since a fresh parse of that sentence alone finds
-   nothing. Fixed by tracking each thread's last known filter set and, when a new message
-   reads as an EDIT instruction rather than a new search, merging against it instead of
-   replacing it wholesale. */
+   nothing. Fixed by tracking each thread's last known filter set and merging every follow-up
+   against it by default — real conversational phrasing ("under 25 too", "actually £3m") never
+   reliably matches a fixed list of trigger words, so gating persistence behind specific
+   keywords (the first version of this fix) was itself the bug: most real edits just fell
+   through to a fresh, context-less search. Persistence is now the default for any follow-up
+   in an existing thread; only an explicit "start over" signal discards it. */
 let threadFilterContext = {}; // { [threadId]: parsed } — in-memory only, for this session; doesn't persist across a full reload
 
-const MODIFICATION_INTENT_RE = /\b(remove|instead|replace|change|update|swap|also add|also include|but keep|now show|no longer|drop the|get rid of)\b/i;
+const RESET_INTENT_RE = /\b(new search|start over|start fresh|forget (that|this|the previous|it)|clear (all )?filters|reset (the )?search|from scratch)\b/i;
 
 const REMOVE_FIELD_PATTERNS = [
   [/remove (the )?(age|age range)( filter)?/i, ['ageMin','ageMax']],
@@ -1036,7 +1038,7 @@ const REMOVE_FIELD_PATTERNS = [
 ];
 
 function looksLikeModification(text, threadId){
-  return !!threadFilterContext[threadId] && MODIFICATION_INTENT_RE.test(text);
+  return !!threadFilterContext[threadId] && !RESET_INTENT_RE.test(text);
 }
 
 // Regex-only merge — works everywhere, deployed or not, no AI dependency. Any field the fresh
@@ -1887,8 +1889,11 @@ function buildAssistantBlock(response, animate, sourceLabel){
   block.innerHTML = `
     <div class="assistant-tag"><div class="ring"><i></i></div><span>Recon</span></div>
     ${fallbackHtml}
-    <div class="breakdown-label"><span class="pulse"></span>QUERY UNDERSTOOD AS</div>
-    <div class="filter-chips"></div>
+    <div class="query-briefing">
+      <div class="nlq-summary"><span class="nlq-summary-label">Executive Summary</span><div class="nlq-summary-loading">Generating…</div></div>
+      <div class="filter-chips-label"><span class="pulse"></span>Based on</div>
+      <div class="filter-chips"></div>
+    </div>
     <div class="add-filter-panel">
       <div class="add-filter-row" data-field="position"><label>Position</label>
         <select><option value="" disabled selected hidden>Position</option><option value="CB">Centre-Back</option><option value="FB">Full-Back</option><option value="DEF">Defender (either)</option><option value="WG">Winger</option><option value="CM">Midfielder</option><option value="ST">Striker</option></select>
@@ -1910,7 +1915,6 @@ function buildAssistantBlock(response, animate, sourceLabel){
         <button class="add-filter-apply" style="flex:1;" id="add-filter-apply-btn">Apply</button>
       </div>
     </div>
-    <div class="nlq-summary"><span class="nlq-summary-label">Executive Summary</span><div class="nlq-summary-loading">Generating…</div></div>
     <div class="results-meta"><div class="results-count"></div>
       <div style="display:flex; align-items:center; gap:6px;"><span style="font-size:10.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em;">Sort</span><select class="sort-select">${sortOptionsHtml}</select></div>
     </div>
@@ -1936,18 +1940,13 @@ function buildAssistantBlock(response, animate, sourceLabel){
       const c = document.createElement('div');
       c.className = 'fchip' + (f.gbe ? ' gbe' : '');
       c.style.animationDelay = animate ? (idx*90)+'ms' : '0ms';
-      const removable = {"Position":"position","Metric":"metric","Age":"age","League":"league","Club":"club","Name":"nameQuery","Season":"season","Showing":"resultLimit","Budget":"budgetMax","Eligibility":"gbeReq"}[f.t];
-      c.innerHTML = `${f.t}: <b>${f.v}</b>${removable ? '<span class="fchip-x">✕</span>' : ''}`;
-      if(removable){
-        c.querySelector('.fchip-x').onclick = ()=> applyFilterChange(removable, null);
-      }
+      // Read-only display now — chips show what's active but aren't tappable. On a phone, a
+      // small "✕" is a precision target nobody wants to hit one-thumb pitch-side; typing
+      // "remove the budget filter" (which the conversational-edit system already handles) is
+      // the actual mobile-native way to change a search, not a mini form UI stacked on chips.
+      c.innerHTML = `${f.t}: <b>${f.v}</b>`;
       fc.appendChild(c);
     });
-    const addChip = document.createElement('div');
-    addChip.className = 'fchip-add';
-    addChip.textContent = '+ Add filter';
-    addChip.onclick = ()=> block.querySelector('.add-filter-panel').classList.toggle('show');
-    fc.appendChild(addChip);
   }
 
   async function applyFilterChange(field, value){
