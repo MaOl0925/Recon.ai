@@ -720,7 +720,7 @@ function detectClub(text){
       for(const w of words){
         const candFirst = cand.split(' ')[0];
         const dist = levenshtein(w, candFirst); // compare against the candidate's first word — catches "Prestn"→"Preston" etc.
-        const maxDist = candFirst.length <= 5 ? 1 : 2; // short words need a tighter tolerance — distance 2 on 4-5 letters is way too loose (caused 'some'~'Stoke')
+        const maxDist = 1; // was length-scaled up to 2 for longer words, but three separate real bugs (some~Stoke, wingers~tigers, afford~Watford/Oxford) were all distance-2 collisions with ordinary English words, while every genuine typo tested (Prestn→Preston, Middlsbrough→Middlesbrough) is distance-1 — so distance-2 was pure risk with no real typo-tolerance benefit
         if(dist <= maxDist && dist < bestDist){ bestDist = dist; best = official; }
       }
     }
@@ -786,6 +786,14 @@ function parseQuery(text){
   else if(/two seasons ago|\b2022\/23\b/i.test(text)) season = 2022;
   if(season) filters.push({t:"Season", v:String(season)});
 
+  let resultLimit = null;
+  const limitMatch = text.match(/top\s?(\d{1,3})|best\s?(\d{1,3})|(\d{1,3})\s?(players|results|options|of them)|(?:show|give|bring)\s?(?:me\s?)?(\d{1,3})\b/i);
+  if(limitMatch){
+    const n = parseInt(limitMatch[1]||limitMatch[2]||limitMatch[3]||limitMatch[5],10);
+    if(n >= 1 && n <= 200) resultLimit = n; // sanity bound — a "top 4000" typo shouldn't be taken literally
+  }
+  if(resultLimit) filters.push({t:"Showing", v:"Top "+resultLimit});
+
   if(ageMin && ageMax) filters.push({t:"Age", v:ageMin+"–"+ageMax});
   else if(ageMax) filters.push({t:"Age", v:"Under "+ageMax});
   else if(ageMin) filters.push({t:"Age", v:ageMin+"+"});
@@ -831,7 +839,7 @@ function parseQuery(text){
     if(trimmed.length >= 3) finalNameQuery = trimmed;
   }
 
-  return {position, metric, ageMin, ageMax, league, season, club, nameQuery: finalNameQuery, budgetMax, gbeReq, filters};
+  return {position, metric, ageMin, ageMax, league, season, club, nameQuery: finalNameQuery, resultLimit, budgetMax, gbeReq, filters};
 }
 
 /* ---------------- Real NLQ layer (LLM-based), regex above kept as automatic fallback ---------------- */
@@ -862,6 +870,7 @@ Respond with ONLY a JSON object, no other text, no markdown fences, in exactly t
   "club": the specific club name mentioned, as free text (e.g. "Boro", "West Brom", a misspelling — don't worry about exact official naming, just extract what was said), or null if no specific club is mentioned,
   "playerName": if the query is searching for a SPECIFIC named player (not a position/role description), the name or surname as typed, else null — do not treat position words, stat words, or club names as a player name,
   "season": one of 2022, 2023, 2024 (the specific year being asked about — "last season" means 2023, "this season"/"current" means 2024, "two seasons ago" means 2022, an explicit year mentioned means that year), or null if no season is specified,
+  "resultLimit": if the query asks for a specific NUMBER of results ("top 5", "best 10", "show me 3", "give me the top 20"), that number, else null — do not confuse this with an age or budget number,
   "budgetMaxM": a number in millions of pounds (convert any currency/format mentioned into this), or null,
   "gbeRequired": true only if the query explicitly asks about visa/work-permit/GBE/ESC eligibility, else false
 }`;
@@ -913,13 +922,16 @@ Respond with ONLY a JSON object, no other text, no markdown fences, in exactly t
   const season = [2022,2023,2024].includes(parsed.season) ? parsed.season : null;
   if(season) filters.push({t:"Season", v:String(season)});
 
+  const resultLimit = (typeof parsed.resultLimit === 'number' && parsed.resultLimit >= 1 && parsed.resultLimit <= 200) ? parsed.resultLimit : null;
+  if(resultLimit) filters.push({t:"Showing", v:"Top "+resultLimit});
+
   const budgetMax = typeof parsed.budgetMaxM === 'number' ? Math.round(parsed.budgetMaxM*100)/100 : null;
   if(budgetMax) filters.push({t:"Budget", v:"≤ £"+budgetMax+"M"});
 
   const gbeReq = !!parsed.gbeRequired;
   if(gbeReq) filters.push({t:"Eligibility", v:"GBE eligible", gbe:true});
 
-  return {position, metric, ageMin, ageMax, league, club, nameQuery, season, budgetMax, gbeReq, filters, _viaAI:true};
+  return {position, metric, ageMin, ageMax, league, club, nameQuery, resultLimit, season, budgetMax, gbeReq, filters, _viaAI:true};
 }
 
 let nlqAIFailed = false; // once it fails once (e.g. not in claude.ai preview), stop retrying every query — just use regex
@@ -993,9 +1005,60 @@ function rebuildFiltersDisplay(parsed){
     filters.push({t:"Name", v:`"${parsed.nameQuery}" — ${count} match${count===1?'':'es'}`});
   }
   if(parsed.season) filters.push({t:"Season", v:String(parsed.season)});
+  if(parsed.resultLimit) filters.push({t:"Showing", v:"Top "+parsed.resultLimit});
   if(parsed.budgetMax) filters.push({t:"Budget", v:"≤ £"+parsed.budgetMax+"M"});
   if(parsed.gbeReq) filters.push({t:"Eligibility", v:"GBE eligible", gbe:true});
   return filters;
+}
+
+/* ---------------- Conversational filter persistence ---------------- */
+/* Every prior message treated each new typed query as a completely standalone search, with
+   zero memory of what was already active. "Remove the budget filter" would silently discard
+   position/league/age/everything else too, since a fresh parse of that sentence alone finds
+   nothing. Fixed by tracking each thread's last known filter set and, when a new message
+   reads as an EDIT instruction rather than a new search, merging against it instead of
+   replacing it wholesale. */
+let threadFilterContext = {}; // { [threadId]: parsed } — in-memory only, for this session; doesn't persist across a full reload
+
+const MODIFICATION_INTENT_RE = /\b(remove|instead|replace|change|update|swap|also add|also include|but keep|now show|no longer|drop the|get rid of)\b/i;
+
+const REMOVE_FIELD_PATTERNS = [
+  [/remove (the )?(age|age range)( filter)?/i, ['ageMin','ageMax']],
+  [/remove (the )?budget( filter)?/i, ['budgetMax']],
+  [/remove (the )?league( filter)?/i, ['league']],
+  [/remove (the )?club( filter)?/i, ['club']],
+  [/remove (the )?position( filter)?/i, ['position']],
+  [/remove (the )?season( filter)?/i, ['season']],
+  [/remove (the )?(name|player name)( filter)?/i, ['nameQuery']],
+  [/remove (the )?(eligibility|gbe)( filter)?/i, ['gbeReq']],
+  [/remove (the )?(limit|showing|top)( filter)?/i, ['resultLimit']],
+  [/remove (the )?metric( filter)?/i, ['metric']],
+];
+
+function looksLikeModification(text, threadId){
+  return !!threadFilterContext[threadId] && MODIFICATION_INTENT_RE.test(text);
+}
+
+// Regex-only merge — works everywhere, deployed or not, no AI dependency. Any field the fresh
+// parse of the NEW text actually finds overrides the old value (this is how "y" in "remove x,
+// use y instead" gets applied); an explicit "remove X" phrase clears that field even though
+// simply not mentioning something never would; anything neither removed nor re-mentioned stays
+// exactly as it was — this is the actual fix for the reported bug.
+function mergeWithContext(text, priorParsed){
+  const fresh = parseQuery(text);
+  const merged = {...priorParsed};
+
+  REMOVE_FIELD_PATTERNS.forEach(([re, fields])=>{
+    if(re.test(text)) fields.forEach(f=> merged[f] = (f === 'gbeReq') ? false : null);
+  });
+
+  ['position','metric','ageMin','ageMax','league','club','nameQuery','resultLimit','season','budgetMax'].forEach(f=>{
+    if(fresh[f] !== null && fresh[f] !== undefined) merged[f] = fresh[f];
+  });
+  if(fresh.gbeReq) merged.gbeReq = true; // only override to true on an explicit new mention — never silently unset without the "remove eligibility" phrase above
+
+  merged.filters = rebuildFiltersDisplay(merged);
+  return merged;
 }
 
 function applyFilters(position, ageMin, ageMax, league, club, budgetMax, gbeReq, season, nameQuery){
@@ -1067,7 +1130,8 @@ function filterAndSort(parsed){
   }
 
   const totalMatches = pool.length;
-  const results = pool.map(p=>{ // ALL matches, not sliced — pagination handles display size, not the search
+  if(effectiveParsed.resultLimit) pool = pool.slice(0, effectiveParsed.resultLimit); // applied AFTER sort, so "top 5" is genuinely the best 5, not an arbitrary 5
+  const results = pool.map(p=>{ // ALL matches (or the requested top N) — pagination handles display size beyond that, not the search itself
     let statLabel, statVal;
     if(sortKey === "xgdiff_under" || sortKey === "xgdiff_over"){ statLabel="G−xG/90"; statVal=(p.s.goals-p.s.xg).toFixed(2); }
     else if(sortKey && p.s[sortKey]!==undefined){
@@ -1736,6 +1800,30 @@ function sendMessage(){
     return;
   }
 
+  // Conversational edit: "remove the budget filter", "replace wingers with strikers", etc.
+  // merges against this thread's last known filters instead of parsing fresh from scratch —
+  // which is what was silently discarding every other active filter before.
+  if(looksLikeModification(text, threadId)){
+    const merged = mergeWithContext(text, threadFilterContext[threadId]);
+    const doIt = async ()=>{
+      const response = liveMode ? (await reRunWithParsed(merged, true)) : filterAndSort(merged);
+      typing.remove();
+      threadFilterContext[threadId] = response.parsed;
+      finishTurn(turnEl, threadId, text, response, liveMode ? 'Live data' : undefined, actingUsername);
+    };
+    if(liveMode){
+      const loadingNote = document.createElement('div');
+      loadingNote.className = 'fallback-note';
+      loadingNote.textContent = 'Connecting to live data…';
+      turnEl.appendChild(loadingNote);
+      scrollToBottom();
+      doIt().then(()=> loadingNote.remove());
+    } else {
+      setTimeout(doIt, 400);
+    }
+    return;
+  }
+
   if(liveMode){
     const loadingNote = document.createElement('div');
     loadingNote.className = 'fallback-note';
@@ -1752,6 +1840,7 @@ function sendMessage(){
         errNote.innerHTML = `<span style="color:var(--brick)">●</span> Couldn't reach any live data source right now — showing demo data instead.`;
         turnEl.appendChild(errNote);
       }
+      threadFilterContext[threadId] = response.parsed;
       finishTurn(turnEl, threadId, text, response, label, actingUsername);
     });
     return;
@@ -1759,7 +1848,9 @@ function sendMessage(){
 
   setTimeout(async ()=>{
     typing.remove();
-    finishTurn(turnEl, threadId, text, await runSearch(text), undefined, actingUsername);
+    const response = await runSearch(text);
+    threadFilterContext[threadId] = response.parsed;
+    finishTurn(turnEl, threadId, text, response, undefined, actingUsername);
   }, 650);
 }
 
@@ -1845,7 +1936,7 @@ function buildAssistantBlock(response, animate, sourceLabel){
       const c = document.createElement('div');
       c.className = 'fchip' + (f.gbe ? ' gbe' : '');
       c.style.animationDelay = animate ? (idx*90)+'ms' : '0ms';
-      const removable = {"Position":"position","Metric":"metric","Age":"age","League":"league","Club":"club","Name":"nameQuery","Season":"season","Budget":"budgetMax","Eligibility":"gbeReq"}[f.t];
+      const removable = {"Position":"position","Metric":"metric","Age":"age","League":"league","Club":"club","Name":"nameQuery","Season":"season","Showing":"resultLimit","Budget":"budgetMax","Eligibility":"gbeReq"}[f.t];
       c.innerHTML = `${f.t}: <b>${f.v}</b>${removable ? '<span class="fchip-x">✕</span>' : ''}`;
       if(removable){
         c.querySelector('.fchip-x').onclick = ()=> applyFilterChange(removable, null);
@@ -1866,6 +1957,7 @@ function buildAssistantBlock(response, animate, sourceLabel){
     else if(field === 'age'){ newParsed.ageMin = null; newParsed.ageMax = null; } // Age chip covers both min and max together
     else if(field === 'league') newParsed.league = value;
     else if(field === 'season') newParsed.season = value;
+    else if(field === 'resultLimit') newParsed.resultLimit = value;
     else if(field === 'club') newParsed.club = value;
     else if(field === 'nameQuery') newParsed.nameQuery = value;
     else if(field === 'budgetMax') newParsed.budgetMax = value;
@@ -1999,7 +2091,11 @@ function buildAssistantBlock(response, animate, sourceLabel){
   }
 
   function renderPage(){
-    block.querySelector('.results-count').textContent = `${currentResponse.totalMatches ?? currentResponse.results.length} matches`;
+    const total = currentResponse.totalMatches ?? currentResponse.results.length;
+    const shown = currentResponse.results.length;
+    block.querySelector('.results-count').textContent = (currentParsed.resultLimit && shown < total)
+      ? `Top ${shown} of ${total} matches`
+      : `${total} matches`;
     const all = sortedResults(currentSortMode);
     const totalPages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
     currentPage = Math.min(currentPage, totalPages);
@@ -2190,6 +2286,25 @@ document.getElementById('test-sources-btn').onclick = async function(){
     { name: 'football-data.org (standings)', run: ()=> loadFootballData() },
     { name: 'API-Football team stats (index.json)', run: ()=> loadTeamStatsIndex().then(r=>{ if(!r) throw new Error('index.json not found or empty — has cache-team-stats.py been run and committed?'); return r; }) },
     { name: 'efl-squads (real player names)', run: ()=> loadEflSquads() },
+    { name: 'NLQ proxy (AI parser + Executive Summary)', run: async ()=>{
+      if(NLQ_PROXY_URL.includes('YOUR-SUBDOMAIN')){
+        throw new Error('Still using the placeholder URL — swap NLQ_PROXY_URL for your real Cloudflare Worker URL (search "NLQ_PROXY_URL" in the file).');
+      }
+      const res = await fetch(NLQ_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ system: 'Reply with only the word: ok', userText: 'test' }),
+      });
+      if(!res.ok){
+        let detail = '';
+        try{ detail = JSON.stringify(await res.json()); }catch(e){}
+        throw new Error(`Worker responded HTTP ${res.status}. ${detail || '(no body) — check the Worker is deployed and ANTHROPIC_API_KEY is set as a secret.'}`);
+      }
+      const data = await res.json();
+      if(data.error) throw new Error('Worker/Anthropic error: ' + JSON.stringify(data.error));
+      if(data.type === 'error') throw new Error('Anthropic API error: ' + (data.error?.message || JSON.stringify(data)) + ' — check ANTHROPIC_API_KEY is correct and has billing enabled.');
+      return { ok: true };
+    }},
   ];
 
   for(const t of tests){
@@ -2252,6 +2367,7 @@ window.addEventListener('offline', ()=> setConnState(false));
 function resolveQueuedTurn(q){
   const finish = (response, sourceLabel)=>{
     q.typingEl.remove();
+    threadFilterContext[q.threadId] = response.parsed;
     const block = buildAssistantBlock(response, true, sourceLabel);
     if(q.threadId === currentThreadId){
       q.turnEl.appendChild(block);
