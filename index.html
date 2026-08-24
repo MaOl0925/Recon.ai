@@ -847,7 +847,7 @@ const NLQ_METRIC_KEYS = METRIC_MAP.map(m=>m.key);
 // IMPORTANT: replace this with YOUR actual Cloudflare Worker URL once deployed —
 // see the deployment steps for exactly where to find it and how to swap it in.
 // Shared by both the query parser and the results summary below — one place to update.
-const NLQ_PROXY_URL = "https://recon-nlq-proxy.YOUR-SUBDOMAIN.workers.dev";
+const NLQ_PROXY_URL = "https://my-pm-worker.dkelly668.workers.dev/";
 
 async function parseQueryAI(text){
   const system = `You are a query parser for a football recruitment scouting tool. Given a scout's natural-language search (which may contain typos, abbreviations, or be written in a language other than English), extract structured search filters.
