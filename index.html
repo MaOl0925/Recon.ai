@@ -86,6 +86,8 @@
   .assistant-tag span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-dim); }
 
   .fallback-note{ font-size:12px; color:var(--text-muted); background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:9px 12px; margin-bottom:10px; line-height:1.5; }
+  .nlq-summary{ font-size:13px; color:var(--text); background:linear-gradient(135deg, rgba(212,166,58,.08), rgba(212,166,58,.02)); border:1px solid rgba(212,166,58,.25); border-radius:10px; padding:11px 13px; margin-bottom:12px; line-height:1.55; }
+  .nlq-summary .nlq-summary-label{ font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--gold); font-weight:700; margin-bottom:4px; display:block; }
 
   .breakdown-label{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-dim); margin-bottom:8px; display:flex; align-items:center; gap:6px;}
   .breakdown-label .pulse{ width:5px;height:5px;border-radius:50%; background:var(--sage); box-shadow:0 0 0 0 rgba(95,165,122,.6); animation:pulse 1.6s infinite; }
@@ -840,6 +842,11 @@ function parseQuery(text){
    the regex parser above — nothing breaks, search just gets less smart in that case. */
 const NLQ_METRIC_KEYS = METRIC_MAP.map(m=>m.key);
 
+// IMPORTANT: replace this with YOUR actual Cloudflare Worker URL once deployed —
+// see the deployment steps for exactly where to find it and how to swap it in.
+// Shared by both the query parser and the results summary below — one place to update.
+const NLQ_PROXY_URL = "https://recon-nlq-proxy.YOUR-SUBDOMAIN.workers.dev";
+
 async function parseQueryAI(text){
   const system = `You are a query parser for a football recruitment scouting tool. Given a scout's natural-language search (which may contain typos, abbreviations, or be written in a language other than English), extract structured search filters.
 
@@ -856,10 +863,6 @@ Respond with ONLY a JSON object, no other text, no markdown fences, in exactly t
   "budgetMaxM": a number in millions of pounds (convert any currency/format mentioned into this), or null,
   "gbeRequired": true only if the query explicitly asks about visa/work-permit/GBE/ESC eligibility, else false
 }`;
-
-  // IMPORTANT: replace this with YOUR actual Cloudflare Worker URL once deployed —
-  // see the deployment steps for exactly where to find it and how to swap it in.
-  const NLQ_PROXY_URL = "https://my-pm-worker.dkelly668.workers.dev/";
 
   const response = await fetch(NLQ_PROXY_URL, {
     method: "POST",
@@ -926,6 +929,51 @@ async function parseQuerySmart(text){
   } catch(e){
     nlqAIFailed = true;
     return parseQuery(text);
+  }
+}
+
+let summaryAIFailed = false; // separate flag from nlqAIFailed — the proxy could theoretically work for one call type and not the other, and this avoids wasting a call once we know summaries specifically aren't reachable
+
+/* Genuinely different from the parser: this reads the actual result set and writes a real
+   sentence about it (value range, standout players, etc.) — not a template restating the
+   filter chips. Needs the same backend proxy the parser uses, so it has the same honest
+   limitation: works once NLQ_PROXY_URL is deployed and reachable, silently unavailable
+   otherwise (the summary block just never appears — no broken UI, no error shown to the user
+   for something this non-essential). */
+async function generateResultsSummary(response, parsed){
+  if(summaryAIFailed) return null;
+  if(!response.results || response.results.length === 0) return null;
+
+  const withData = response.results.filter(p=>!p.isRealNoStats);
+  if(withData.length === 0) return null; // nothing with real stats to say anything meaningful about
+
+  const sample = withData.slice(0, 15).map(p=>({
+    name: p.name, club: p.club, age: p.age, value: p.value,
+    stat: p.statLabel && p.statVal !== undefined ? `${p.statLabel}: ${p.statVal}` : undefined,
+  }));
+
+  const system = `You are summarizing football scouting search results for a recruitment tool. Given the search criteria and a sample of matching players, write ONE short paragraph (2-3 sentences, plain prose, no markdown, no bullet points) that a scout would find useful at a glance — e.g. the overall value/age range, and 1-2 standout players if something is genuinely notable (unusually good value, right at budget, youngest/oldest, best on the ranked stat). Only state facts present in the data given — never invent a stat, a fact, or a player not in the list. If nothing stands out, a plain factual summary is fine — don't force a "standout" that isn't really there.`;
+
+  const userText = JSON.stringify({
+    totalMatches: response.totalMatches,
+    filtersApplied: (parsed.filters || []).map(f=>`${f.t}: ${f.v}`),
+    sampleOfResults: sample,
+  });
+
+  try{
+    const res = await fetch(NLQ_PROXY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ system, userText })
+    });
+    if(!res.ok) throw new Error('summary proxy HTTP ' + res.status);
+    const data = await res.json();
+    if(data.error) throw new Error('summary proxy error: ' + data.error);
+    const text = (data.content || []).map(b=>b.text||'').join('').trim();
+    return text || null;
+  } catch(e){
+    summaryAIFailed = true;
+    return null;
   }
 }
 
@@ -1769,6 +1817,7 @@ function buildAssistantBlock(response, animate, sourceLabel){
         <button class="add-filter-apply" style="flex:1;" id="add-filter-apply-btn">Apply</button>
       </div>
     </div>
+    <div class="nlq-summary" style="display:none;"></div>
     <div class="results-meta"><div class="results-count"></div>
       <div style="display:flex; align-items:center; gap:6px;"><span style="font-size:10.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em;">Sort</span><select class="sort-select">${sortOptionsHtml}</select></div>
     </div>
@@ -1829,6 +1878,7 @@ function buildAssistantBlock(response, animate, sourceLabel){
     renderFilterChips();
     renderPage();
     renderRealSquadSection();
+    refreshSummary();
   }
 
   block.querySelector('#add-filter-cancel-btn').onclick = ()=>{
@@ -1891,6 +1941,7 @@ function buildAssistantBlock(response, animate, sourceLabel){
     renderFilterChips();
     renderPage();
     renderRealSquadSection();
+    refreshSummary();
   };
 
   function sortedResults(mode){
@@ -1964,8 +2015,24 @@ function buildAssistantBlock(response, animate, sourceLabel){
 
   block.querySelector('.sort-select').onchange = (e)=>{ currentSortMode = e.target.value; currentPage = 1; renderPage(); };
 
+  function refreshSummary(){
+    const summaryEl = block.querySelector('.nlq-summary');
+    if(summaryEl){ summaryEl.style.display = 'none'; summaryEl.innerHTML = ''; } // never show a stale summary from before the edit while the new one loads
+    generateResultsSummary(currentResponse, currentParsed).then(summary=>{
+      if(!summary) return;
+      const el = block.querySelector('.nlq-summary');
+      if(!el) return; // block may have been replaced before this resolved
+      el.innerHTML = `<span class="nlq-summary-label">Summary</span>`;
+      const p = document.createElement('div');
+      p.textContent = summary; // textContent — this is AI-generated text, never trust it as safe HTML
+      el.appendChild(p);
+      el.style.display = 'block';
+    });
+  }
+
   renderFilterChips();
   renderPage();
+  refreshSummary();
 
   return block;
 }
