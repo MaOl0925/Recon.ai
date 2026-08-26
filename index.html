@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#14171C">
 <title>Recon</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Recon">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -23,12 +28,14 @@
   .screen{ width:100%; height:100%; background:var(--backdrop); position:relative; overflow:hidden; }
   .view{ position:absolute; inset:0; display:flex; flex-direction:column; transition: transform .38s cubic-bezier(.22,.9,.32,1), opacity .3s ease; }
   #view-home{ transform:translateX(0); }
-  #view-profile, #view-account, #view-settings, #view-team{ transform:translateX(100%); background:var(--backdrop); z-index:10; }
+  #view-profile, #view-account, #view-settings, #view-team, #view-report-form, #view-reports{ transform:translateX(100%); background:var(--backdrop); z-index:10; }
   .screen.secondary-open #view-home{ transform:translateX(-28%); opacity:1; }
   .screen.view-profile #view-profile{ transform:translateX(0); }
   .screen.view-account #view-account{ transform:translateX(0); }
   .screen.view-settings #view-settings{ transform:translateX(0); }
   .screen.view-team #view-team{ transform:translateX(0); }
+  .screen.view-report-form #view-report-form{ transform:translateX(0); }
+  .screen.view-reports #view-reports{ transform:translateX(0); }
 
   .statusbar{ height:0; padding-top:env(safe-area-inset-top, 14px); flex:0 0 auto; }
   .safe-bottom{ padding-bottom:env(safe-area-inset-bottom, 0px); }
@@ -87,6 +94,8 @@
 
   .fallback-note{ font-size:12px; color:var(--text-muted); background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:9px 12px; margin-bottom:10px; line-height:1.5; }
   .query-briefing{ margin-bottom:14px; }
+  .assistant-prose{ font-size:13.5px; color:var(--text); line-height:1.6; white-space:pre-wrap; margin-bottom:10px; }
+  .tool-note{ font-size:11px; color:var(--text-dim); font-style:italic; margin-bottom:10px; animation:nlqPulse 1.4s ease-in-out infinite; }
   .nlq-summary{ font-size:13px; color:var(--text); padding:0 0 10px; line-height:1.55; }
   .filter-chips-label{ font-size:9.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px; display:flex; align-items:center; gap:6px; }
   .filter-chips-label .pulse{ width:4px;height:4px;border-radius:50%; background:var(--sage); box-shadow:0 0 0 0 rgba(95,165,122,.6); animation:pulse 1.6s infinite; }
@@ -343,7 +352,7 @@
             <div class="ex-chip" data-q="Full backs I can afford for £2 million">Full backs, budget £2M</div>
           </div>
           <div class="composer">
-            <input id="query-input" type="text" placeholder="Message Recon…" autocomplete="off" maxlength="300">
+            <input id="query-input" type="text" placeholder="Message Recon…" autocomplete="off" maxlength="2000">
             <div class="icon-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/></svg></div>
             <button class="send-btn" id="send-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
           </div>
@@ -358,6 +367,7 @@
               New chat
             </div>
           </div>
+          <div style="padding:0 8px 8px;"><input id="drawer-search" type="text" placeholder="Search past conversations…" style="width:100%; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; color:var(--text); font-size:12.5px; box-sizing:border-box;"></div>
           <div class="drawer-list" id="drawer-list"></div>
           <div class="drawer-footer">
             <div class="drawer-row" id="open-account">
@@ -376,6 +386,11 @@
             <div class="drawer-row" id="open-team" style="display:none;">
               <div class="dr-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
               <div class="dr-mid"><div class="dr-name">Team &amp; invites</div><div class="tm-sub" style="font-size:10.5px; color:var(--text-dim);">Admin only</div></div>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.4"><path d="m9 18 6-6-6-6"/></svg>
+            </div>
+            <div class="drawer-row" id="open-reports" style="display:none;">
+              <div class="dr-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></div>
+              <div class="dr-mid"><div class="dr-name">Reports</div><div class="tm-sub" style="font-size:10.5px; color:var(--text-dim);">Management &amp; Admin</div></div>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.4"><path d="m9 18 6-6-6-6"/></svg>
             </div>
           </div>
@@ -481,10 +496,61 @@
           <div id="data-sources-controls"></div>
           <div class="auth-note">Turning a source off skips it entirely for everyone at this club — it won't be attempted or counted against "sources reachable." None of these need a personal API key from anyone; they're pre-configured for the whole club, this just controls which ones are active.</div>
 
+          <div class="section-label">Conversation retention</div>
+          <div class="add-filter-row"><label>Auto-delete conversations older than</label>
+            <select id="retention-select">
+              <option value="">Never (keep indefinitely)</option>
+              <option value="30">30 days</option>
+              <option value="90">90 days</option>
+              <option value="180">180 days</option>
+              <option value="365">1 year</option>
+            </select>
+          </div>
+          <div class="auth-note">Applies to each user's saved conversations when they next sign in. Without a backend there's no scheduled job, so this can't run in the background for everyone at once — a production deployment needs a server-side task for that. Conversations contain player personal data (and, via the Academy role, potentially youth data), so a retention period should be set deliberately with legal input rather than left indefinite.</div>
+
+          <div class="section-label">Erase a user's data (GDPR)</div>
+          <div class="add-filter-row"><label>User email</label><input id="erase-username" type="text" placeholder="person@club.co.uk"></div>
+          <div class="auth-error" id="erase-error"></div>
+          <button class="auth-btn" id="erase-user-btn" style="background:var(--brick); color:#fff;">Erase all data for this user</button>
+          <div class="auth-note">Permanently deletes that user's entire conversation history, any reports they authored, and their account. Recorded in the audit log. This cannot be undone.</div>
+
           <div class="section-label">Audit log</div>
           <div id="audit-log-list"></div>
-          <div class="auth-note">Every sign-in, sign-out, failed attempt, lockout, role change, revoke, invite, and access-expiry event for this club — one log, not a separate system, per the audit requirement.</div>
+          <div class="auth-note">Every sign-in, sign-out, failed attempt, lockout, role change, revoke, invite, access-expiry, report, and data-erasure event for this club — one log, not a separate system, per the audit requirement.</div>
         </div>
+      </div>
+
+      <div class="view" id="view-report-form">
+        <div class="statusbar"></div>
+        <div class="profile-nav"><div class="back-btn" data-close-secondary><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg></div><div class="dr-name" style="font-size:14px; font-weight:700;">Scouting report</div></div>
+        <div class="profile-scroll" id="report-form-scroll">
+          <div class="section-label" id="report-form-player-label">Player</div>
+          <div class="auth-note" id="report-snapshot-note"></div>
+          <div class="add-filter-row"><label>Recommendation</label>
+            <select id="report-recommendation">
+              <option value="">— select —</option>
+              <option value="Sign">Sign</option>
+              <option value="Monitor">Monitor</option>
+              <option value="Further scouting needed">Further scouting needed</option>
+              <option value="Pass">Pass</option>
+            </select>
+          </div>
+          <div class="add-filter-row"><label>Notes</label>
+            <textarea id="report-notes" rows="8" style="width:100%; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; padding:10px; color:var(--text); font-size:13px; font-family:'Inter',sans-serif; resize:vertical;" placeholder="What you saw, strengths, concerns, recommendation context…"></textarea>
+          </div>
+          <div class="auth-error" id="report-form-error"></div>
+          <div style="display:flex; gap:8px; margin-top:6px;">
+            <button class="add-filter-apply" style="background:var(--surface-2); color:var(--text-muted); border:1px solid var(--line); flex:1;" id="report-save-draft-btn">Save draft</button>
+            <button class="add-filter-apply" style="flex:1;" id="report-submit-btn">Submit</button>
+          </div>
+          <div class="auth-note" style="margin-top:10px;">Submitting locks in a snapshot of this player's data as it stands right now — if the underlying stats change later, this report still honestly reflects what the recommendation was actually based on.</div>
+        </div>
+      </div>
+
+      <div class="view" id="view-reports">
+        <div class="statusbar"></div>
+        <div class="profile-nav"><div class="back-btn" data-close-secondary><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg></div><div class="dr-name" style="font-size:14px; font-weight:700;">Reports</div></div>
+        <div class="profile-scroll" id="reports-review-scroll"></div>
       </div>
 
       <div class="view" id="view-profile">
@@ -859,6 +925,216 @@ const NLQ_METRIC_KEYS = METRIC_MAP.map(m=>m.key);
 // Shared by both the query parser and the results summary below — one place to update.
 const NLQ_PROXY_URL = "https://my-pm-worker.dkelly668.workers.dev/";
 
+/* ================= Conversational assistant =================
+   The structural change: previously the APP decided what every message meant (always:
+   "extract filters, run a search"). Now the MODEL decides — it can answer directly,
+   explain something, ask a clarifying question, or call the search tool. Search became
+   one capability the assistant can use, rather than the only thing the app can do. */
+
+const ASSISTANT_MODEL = "claude-sonnet-4-6"; // reasoning matters more than raw speed here, unlike the parser
+
+const ASSISTANT_TOOLS = [
+  {
+    name: "search_players",
+    description: "Search the player database. Use this whenever the user wants to find players matching criteria, or when you need real data to answer a question about players. Returns matching players with their stats. Omit any filter that wasn't specified — don't invent constraints the user didn't ask for.",
+    input_schema: {
+      type: "object",
+      properties: {
+        position: { type: "string", enum: ["CB","FB","WG","ST","CM","DEF"], description: "CB=centre-back, FB=full-back, WG=winger, ST=striker, CM=central midfielder, DEF=any defender" },
+        league: { type: "string", enum: ["Championship","League One","League Two","Scottish Premiership","Eredivisie"] },
+        club: { type: "string", description: "Club name — nicknames and minor misspellings are resolved automatically" },
+        playerName: { type: "string", description: "Search for a specific player by name (exact substring match)" },
+        season: { type: "number", enum: [2022, 2023, 2024] },
+        ageMin: { type: "number" },
+        ageMax: { type: "number" },
+        budgetMaxM: { type: "number", description: "Maximum market value in millions of pounds" },
+        gbeRequired: { type: "boolean", description: "Only true if the user explicitly asks about visa/work-permit/GBE eligibility" },
+        metric: { type: "string", enum: ["aerial","passAcc","turnovers","keyPasses","tackles","dribbles","interceptions","xg","xgdiff_under","xgdiff_over"], description: "Rank results by this metric. xgdiff_over = overperforming xG (clinical finishers); xgdiff_under = underperforming xG" },
+        limit: { type: "number", description: "Maximum number of results to return (1-200)" },
+      },
+    },
+  },
+  {
+    name: "get_player_details",
+    description: "Get the full detailed profile for one specific player you've already found via search — all stats across all seasons, GBE status, market value, club form and standings if available. Use when the user asks about a particular player in depth.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Exact player name as it appeared in search results" },
+        club: { type: "string", description: "The player's club, to disambiguate players with similar names" },
+      },
+      required: ["name"],
+    },
+  },
+];
+
+function assistantSystemPrompt(){
+  const user = currentUser ? `${currentUser.displayName}, a ${currentUser.role} at ${currentUser.club}` : "a scout";
+  return `You are Recon, a football recruitment assistant used by professional clubs. You're talking to ${user}.
+
+You have a player database covering the Championship, League One, League Two, Scottish Premiership, and Eredivisie, for the 2022, 2023, and 2024 seasons. For each player you can see: position, club, league, age, estimated market value, GBE eligibility, and per-90 performance stats (aerial duels, pass accuracy, tackles, interceptions, key passes, dribbles, turnovers, xG, goals, assists, appearances, minutes, rating, cards, duels won).
+
+How to behave:
+- Use the search_players tool whenever a real answer needs real data. Don't guess at player names or stats — you cannot know them without searching.
+- You can also just talk. If someone asks what GBE means, how to interpret xG, or what you'd look for in a full-back, answer directly without searching.
+- Be concise and direct — this is used pitch-side on a phone, often one-handed. Lead with the answer.
+- When you present players, mention the specific numbers that justify why they're relevant.
+- Never invent a player, a statistic, or a fact. If the data doesn't cover something (injuries, contracts, wages, transfer history, physical attributes, competitions outside those five leagues, or anything predictive), say so plainly — a gap must never look like a finding.
+- If a request is genuinely ambiguous, ask rather than guessing.
+- The illustrative player pool is generated demo data, not verified real-world performance. Don't present it as fact about real people if asked directly what it is.`;
+}
+
+// Bridges the model's tool calls to the app's real search functions.
+async function executeAssistantTool(toolName, input){
+  if(toolName === "search_players"){
+    const parsed = {
+      position: input.position || null,
+      metric: input.metric ? (METRIC_MAP.find(m=>m.key===input.metric) || null) : null,
+      ageMin: input.ageMin ?? null,
+      ageMax: input.ageMax ?? null,
+      league: input.league || null,
+      club: input.club ? detectClub(input.club) : null,
+      nameQuery: input.playerName || null,
+      season: input.season || null,
+      resultLimit: input.limit ?? null,
+      budgetMax: input.budgetMaxM ?? null,
+      gbeReq: !!input.gbeRequired,
+      filters: [],
+    };
+    parsed.filters = rebuildFiltersDisplay(parsed);
+    const response = liveMode ? await reRunWithParsed(parsed, true) : filterAndSort(parsed);
+    lastAssistantSearchResponse = response; // kept so the UI can render the real result cards alongside the prose
+
+    return {
+      totalMatches: response.totalMatches,
+      filtersApplied: response.parsed.filters.map(f=>`${f.t}: ${f.v}`),
+      relaxedFilters: response.droppedFilters || [],
+      players: response.results.slice(0, 20).map(p=>({
+        name: p.name, club: p.club, league: p.league, pos: p.pos, age: p.age,
+        valueM: p.value, gbeEligible: p.gbe,
+        keyStat: p.statLabel && p.statVal !== undefined ? `${p.statLabel}: ${p.statVal}` : undefined,
+        stats: p.isRealNoStats ? "identity-only record, no performance stats" : p.s,
+      })),
+    };
+  }
+
+  if(toolName === "get_player_details"){
+    const match = POOL.find(p => p.name.toLowerCase() === String(input.name||'').toLowerCase() && (!input.club || p.club === input.club))
+      || POOL.find(p => p.name.toLowerCase().includes(String(input.name||'').toLowerCase()));
+    if(!match) return { error: `No player named "${input.name}" found in the database.` };
+    return {
+      name: match.name, club: match.club, league: match.league, pos: match.pos,
+      age: match.age, valueM: match.value, gbeEligible: match.gbe,
+      statsBySeason: match.seasons || { current: match.s },
+    };
+  }
+
+  return { error: `Unknown tool: ${toolName}` };
+}
+
+let lastAssistantSearchResponse = null; // most recent real search result, for rendering cards under the prose
+
+/* Runs a full conversation turn: sends history + tools, streams the reply, executes any
+   tool calls the model requests, and loops until it produces a final text answer.
+   onTextChunk fires per streamed token so the UI can render progressively. */
+async function runAssistantTurn(messages, onTextChunk, onToolUse){
+  let conversationMessages = messages.slice();
+
+  for(let round = 0; round < 5; round++){ // bounded — prevents a runaway tool loop
+    const res = await fetch(NLQ_PROXY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: ASSISTANT_MODEL,
+        max_tokens: 1500,
+        system: assistantSystemPrompt(),
+        messages: conversationMessages,
+        tools: ASSISTANT_TOOLS,
+        stream: true,
+      }),
+    });
+    if(!res.ok) throw new Error('Assistant proxy HTTP ' + res.status);
+
+    const { textOut, toolUses, stopReason } = await readAnthropicStream(res, onTextChunk);
+
+    if(stopReason !== 'tool_use' || toolUses.length === 0){
+      return textOut; // final answer — done
+    }
+
+    // Model asked for tools: run them, feed results back, loop.
+    const assistantContent = [];
+    if(textOut) assistantContent.push({ type: 'text', text: textOut });
+    toolUses.forEach(tu => assistantContent.push({ type: 'tool_use', id: tu.id, name: tu.name, input: tu.input }));
+    conversationMessages.push({ role: 'assistant', content: assistantContent });
+
+    const toolResults = [];
+    for(const tu of toolUses){
+      if(onToolUse) onToolUse(tu.name, tu.input);
+      let result;
+      try{ result = await executeAssistantTool(tu.name, tu.input); }
+      catch(e){ result = { error: 'Tool failed: ' + e.message }; }
+      toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(result) });
+    }
+    conversationMessages.push({ role: 'user', content: toolResults });
+  }
+
+  return "I got stuck working through that — try rephrasing?";
+}
+
+// Parses Anthropic's SSE stream, accumulating text and any tool_use blocks.
+async function readAnthropicStream(res, onTextChunk){
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let textOut = '';
+  let stopReason = null;
+  const toolUses = [];
+  const partialToolInputs = {}; // index -> accumulated JSON string
+
+  while(true){
+    const { done, value } = await reader.read();
+    if(done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for(const line of lines){
+      if(!line.startsWith('data: ')) continue;
+      const raw = line.slice(6).trim();
+      if(!raw || raw === '[DONE]') continue;
+      let evt;
+      try{ evt = JSON.parse(raw); } catch(e){ continue; }
+
+      if(evt.type === 'content_block_start' && evt.content_block?.type === 'tool_use'){
+        toolUses.push({ id: evt.content_block.id, name: evt.content_block.name, input: {}, _index: evt.index });
+        partialToolInputs[evt.index] = '';
+      }
+      else if(evt.type === 'content_block_delta'){
+        if(evt.delta?.type === 'text_delta'){
+          textOut += evt.delta.text;
+          if(onTextChunk) onTextChunk(evt.delta.text);
+        } else if(evt.delta?.type === 'input_json_delta'){
+          partialToolInputs[evt.index] = (partialToolInputs[evt.index] || '') + evt.delta.partial_json;
+        }
+      }
+      else if(evt.type === 'message_delta' && evt.delta?.stop_reason){
+        stopReason = evt.delta.stop_reason;
+      }
+    }
+  }
+
+  // Finalize tool inputs from their accumulated JSON fragments.
+  toolUses.forEach(tu=>{
+    const rawInput = partialToolInputs[tu._index];
+    if(rawInput){
+      try{ tu.input = JSON.parse(rawInput); } catch(e){ tu.input = {}; }
+    }
+  });
+
+  return { textOut, toolUses, stopReason };
+}
+
+
 async function parseQueryAI(text){
   const system = `You are a query parser for a football recruitment scouting tool. Given a scout's natural-language search (which may contain typos, abbreviations, or be written in a language other than English), extract structured search filters.
 
@@ -1039,6 +1315,39 @@ const REMOVE_FIELD_PATTERNS = [
   [/remove (the )?(limit|showing|top)( filter)?/i, ['resultLimit']],
   [/remove (the )?metric( filter)?/i, ['metric']],
 ];
+
+/* ---------------- Story #23: unanswerable / out-of-scope questions ---------------- */
+/* The failure mode this prevents: someone asks about injuries, contracts, wages, or a
+   competition Recon doesn't cover, and gets a confident-looking list of players back that
+   has nothing to do with the question. Silence about a data gap is worse than an error —
+   a gap could be mistaken for a finding. */
+const OUT_OF_SCOPE_TOPICS = [
+  {re:/\binjur|\bfit(ness)? report|\brecovery time|\bsidelined/i, what:"injury and fitness data"},
+  {re:/\bcontract|\bwage|\bsalary|\brelease clause|\bagent\b|\bcontract expir/i, what:"contract, wage, and agent data"},
+  {re:/\btransfer fee paid|\bsold for|\bbought for|\btransfer history/i, what:"historical transfer fee data"},
+  {re:/\bpremier league|\bla liga|\bserie a|\bbundesliga|\bligue 1|\bchampions league|\beuropa/i, what:"competitions outside the Championship, League One/Two, Scottish Premiership, and Eredivisie"},
+  {re:/\bheight\b|\bweight\b|\bhow tall\b|\bhow heavy\b|\bpreferred foot|\bleft.footed|\bright.footed/i, what:"physical attributes like height, weight, and preferred foot"},
+  {re:/\bpredict|\bwill he\b|\bwill they\b|\bnext season'?s? (form|stats)|\bforecast/i, what:"predictive or forecasting data — Recon reports what happened, it doesn't project forward"},
+  {re:/\bhow much (is|are) .* worth\b|\bmarket value trend|\bvalue over time/i, what:"market value history or trend data (only a single current estimate exists)"},
+];
+
+function detectOutOfScope(text){
+  for(const t of OUT_OF_SCOPE_TOPICS){
+    if(t.re.test(text)) return t.what;
+  }
+  return null;
+}
+
+function buildOutOfScopeBlock(what, sourcesNote){
+  const block = document.createElement('div');
+  block.className = 'assistant-block';
+  block.innerHTML = `<div class="assistant-tag"><div class="ring"><i></i></div><span>Recon</span></div>`;
+  const note = document.createElement('div');
+  note.className = 'fallback-note';
+  note.textContent = `Recon doesn't hold ${what}, so there's nothing here to answer that from — rather than show you an unrelated player list, this is a genuine gap in what's connected. Everything Recon can search is covered by: position, club, league, season, age, market value estimate, GBE eligibility, and per-90 performance stats.${sourcesNote ? ' ' + sourcesNote : ''}`;
+  block.appendChild(note);
+  return block;
+}
 
 function looksLikeModification(text, threadId){
   return !!threadFilterContext[threadId] && !RESET_INTENT_RE.test(text);
@@ -1573,6 +1882,12 @@ async function kvSet(key, value){
   }
   try{ localStorage.setItem(key, value); return true; } catch(e){ return false; }
 }
+async function kvDelete(key){
+  if(hasNativeStorage){
+    try{ await window.storage.delete(key); return true; } catch(e){ return false; }
+  }
+  try{ localStorage.removeItem(key); return true; } catch(e){ return false; }
+}
 
 /* ---------------- Persistent chat history ---------------- */
 let threads = [];
@@ -1591,6 +1906,20 @@ async function loadThreads(){
     threads = [];
     historyLoadError = true;
   }
+
+  // Story #21: enforce the club's retention period at load time. Genuinely deletes and
+  // persists — not just filtered out of the view, which would leave the data sitting in
+  // storage while appearing gone. Honest limitation: this only runs when a user actually
+  // logs in, since there's no backend to run it on a schedule for everyone.
+  if(retentionDays && !historyLoadError && threads.length){
+    const cutoff = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
+    const kept = threads.filter(t => t.updatedAt >= cutoff);
+    if(kept.length !== threads.length){
+      threads = kept;
+      await kvSet(threadsKey(), JSON.stringify(threads));
+    }
+  }
+
   renderDrawer();
 }
 async function saveThreads(usernameOverride){
@@ -1620,8 +1949,19 @@ function renderDrawer(){
       : `<div class="drawer-empty">No past queries yet. Everything you ask Recon will be saved here for later review or handoff to Management.</div>`);
     return;
   }
-  const sorted = threads.slice().sort((a,b)=>b.updatedAt-a.updatedAt);
+  const searchTerm = (document.getElementById('drawer-search')?.value || '').trim().toLowerCase();
+  let sorted = threads.slice().sort((a,b)=>b.updatedAt-a.updatedAt);
+  if(searchTerm){
+    sorted = sorted.filter(th =>
+      th.title.toLowerCase().includes(searchTerm) ||
+      th.turns.some(t => t.query.toLowerCase().includes(searchTerm))
+    );
+  }
   list.innerHTML = warnHtml;
+  if(searchTerm && sorted.length === 0){
+    list.innerHTML += `<div class="drawer-empty">No past conversations match "${searchTerm}".</div>`;
+    return;
+  }
   sorted.forEach(th=>{
     const item = document.createElement('div');
     item.className = 'drawer-item' + (th.id===currentThreadId ? ' active' : '');
@@ -1630,6 +1970,7 @@ function renderDrawer(){
     list.appendChild(item);
   });
 }
+document.getElementById('drawer-search').oninput = renderDrawer;
 
 function openThread(id){
   const th = threads.find(t=>t.id===id);
@@ -1652,7 +1993,42 @@ function renderStaticTurn(turn){
   userMsg.className = 'msg-user';
   userMsg.textContent = turn.query;
   el.appendChild(userMsg);
+
+  if(turn.response && turn.response.outOfScope){ // Story #23: replayed out-of-scope turn
+    el.appendChild(buildOutOfScopeBlock(turn.response.outOfScope));
+    chatScroll.appendChild(el);
+    return;
+  }
+
+  // Conversational turns saved with the assistant's prose reply.
+  if(turn.response && turn.response.assistantText){
+    const block = document.createElement('div');
+    block.className = 'assistant-block';
+    block.innerHTML = `<div class="assistant-tag"><div class="ring"><i></i></div><span>Recon</span></div>`;
+    const staleness = document.createElement('div');
+    staleness.style.cssText = 'font-size:10px; color:var(--text-dim); margin:0 0 8px;';
+    staleness.textContent = `Retrieved ${relTime(turn.ts)} — re-run for current data.`;
+    block.appendChild(staleness);
+    const prose = document.createElement('div');
+    prose.className = 'assistant-prose';
+    prose.textContent = turn.response.assistantText; // textContent — model output is never trusted as HTML
+    block.appendChild(prose);
+    if(turn.response.results && turn.response.results.length){
+      const resultsBlock = buildAssistantBlock(turn.response, false, turn.wasLive ? 'Live data' : undefined);
+      resultsBlock.querySelector('.assistant-tag')?.remove();
+      block.appendChild(resultsBlock);
+      resultsBlock.querySelectorAll('.fchip, .pcard').forEach(n=>{ n.style.animation='none'; n.style.opacity=1; n.style.transform='none'; });
+    }
+    el.appendChild(block);
+    chatScroll.appendChild(el);
+    return;
+  }
+
   const block = buildAssistantBlock(turn.response, false, turn.wasLive ? 'Live data' : undefined);
+  const staleness = document.createElement('div');
+  staleness.style.cssText = 'font-size:10px; color:var(--text-dim); margin:-4px 0 8px;';
+  staleness.textContent = `Retrieved ${relTime(turn.ts)} — re-run this query for current data.`;
+  block.insertBefore(staleness, block.firstChild);
   el.appendChild(block);
   chatScroll.appendChild(el);
   block.querySelectorAll('.fchip, .pcard').forEach(n=>{ n.style.animation='none'; n.style.opacity=1; n.style.transform='none'; });
@@ -1770,8 +2146,10 @@ async function reRunWithParsed(parsed, wasLive){
   return response;
 }
 
+let assistantAvailable = true; // flips false on first failure — falls back to deterministic search rather than repeatedly failing
+
 function sendMessage(){
-  const text = input.value.trim().slice(0, 300);
+  const text = input.value.trim().slice(0, 2000); // raised from 300 — conversational messages are legitimately longer than search queries
   if(!text) return;
   input.value = '';
   const empty = document.getElementById('empty-state');
@@ -1798,53 +2176,131 @@ function sendMessage(){
     typing.remove();
     const queuedNote = document.createElement('div');
     queuedNote.className = 'fallback-note';
-    queuedNote.innerHTML = `<span style="color:var(--brick)">●</span> No signal — this search is queued and will run automatically the moment you're back online.`;
+    queuedNote.innerHTML = `<span style="color:var(--brick)">●</span> No signal — this is queued and will run automatically the moment you're back online.`;
     turnEl.appendChild(queuedNote);
     scrollToBottom();
     pendingQueue.push({ text, turnEl, typingEl: queuedNote, threadId, actingUsername });
     return;
   }
 
-  // Conversational edit: "remove the budget filter", "replace wingers with strikers", etc.
-  // merges against this thread's last known filters instead of parsing fresh from scratch —
-  // which is what was silently discarding every other active filter before.
+  if(assistantAvailable){
+    runAssistantMessage(text, turnEl, typing, threadId, actingUsername);
+    return;
+  }
+
+  // Fallback: the original deterministic search path, used only when the assistant can't be
+  // reached. Less capable (search only, no conversation) but works with zero backend.
+  runDeterministicFallback(text, turnEl, typing, threadId, actingUsername);
+}
+
+async function runAssistantMessage(text, turnEl, typing, threadId, actingUsername){
+  // Full conversation history for this thread — this is what makes it genuinely
+  // conversational rather than a series of unrelated one-shot queries.
+  const history = buildAssistantHistory(threadId);
+  history.push({ role: 'user', content: text });
+
+  const block = document.createElement('div');
+  block.className = 'assistant-block';
+  block.innerHTML = `<div class="assistant-tag"><div class="ring"><i></i></div><span>Recon</span></div>`;
+  const proseEl = document.createElement('div');
+  proseEl.className = 'assistant-prose';
+  block.appendChild(proseEl);
+  const toolNoteEl = document.createElement('div');
+  toolNoteEl.className = 'tool-note';
+  toolNoteEl.style.display = 'none';
+  block.appendChild(toolNoteEl);
+
+  let started = false;
+  lastAssistantSearchResponse = null;
+
+  try{
+    const finalText = await runAssistantTurn(
+      history,
+      (chunk)=>{
+        if(!started){ typing.remove(); turnEl.appendChild(block); started = true; }
+        proseEl.textContent += chunk; // textContent — never trust model output as HTML
+        scrollToBottom();
+      },
+      (toolName, toolInput)=>{
+        if(!started){ typing.remove(); turnEl.appendChild(block); started = true; }
+        toolNoteEl.style.display = 'block';
+        toolNoteEl.textContent = toolName === 'search_players' ? 'Searching players…' : 'Looking up player details…';
+        scrollToBottom();
+      }
+    );
+
+    if(!started){ typing.remove(); turnEl.appendChild(block); }
+    toolNoteEl.style.display = 'none';
+    if(!proseEl.textContent) proseEl.textContent = finalText || '';
+
+    // If the assistant actually searched, show the real result cards under its prose — the
+    // numbers come straight from the database, not from the model retelling them.
+    let persistedResponse = { assistantText: proseEl.textContent, parsed:{filters:[]}, results:[], totalMatches:0 };
+    if(lastAssistantSearchResponse){
+      const resultsBlock = buildAssistantBlock(lastAssistantSearchResponse, true, liveMode ? 'Live data' : undefined);
+      resultsBlock.querySelector('.assistant-tag')?.remove(); // one Recon tag per turn, not two
+      block.appendChild(resultsBlock);
+      threadFilterContext[threadId] = lastAssistantSearchResponse.parsed;
+      persistedResponse = { ...lastAssistantSearchResponse, assistantText: proseEl.textContent };
+    }
+    scrollToBottom();
+    persistTurn(text, persistedResponse, threadId, actingUsername, !!liveMode);
+  } catch(e){
+    assistantAvailable = false; // don't keep retrying a proxy that isn't reachable
+    block.remove();
+    const note = document.createElement('div');
+    note.className = 'fallback-note';
+    note.innerHTML = `<span style="color:var(--brick)">●</span> Couldn't reach the assistant — falling back to direct search for this and following messages.`;
+    turnEl.appendChild(note);
+    runDeterministicFallback(text, turnEl, typing, threadId, actingUsername);
+  }
+}
+
+// Reconstructs prior turns as a real message history the model can reason over.
+function buildAssistantHistory(threadId){
+  const th = threads.find(t=>t.id===threadId);
+  if(!th) return [];
+  const history = [];
+  th.turns.slice(-8).forEach(turn=>{ // last 8 turns — enough context without unbounded token growth
+    history.push({ role:'user', content: turn.query });
+    let assistantText = turn.response?.assistantText;
+    if(!assistantText){
+      // Older turns saved before the assistant existed — summarize them so context isn't lost.
+      const n = turn.response?.totalMatches;
+      assistantText = n != null ? `[Searched and found ${n} matching players.]` : '[Previous search.]';
+    }
+    history.push({ role:'assistant', content: assistantText });
+  });
+  return history;
+}
+
+function runDeterministicFallback(text, turnEl, typing, threadId, actingUsername){
+  const outOfScope = detectOutOfScope(text);
+  if(outOfScope){
+    setTimeout(()=>{
+      typing.remove();
+      turnEl.appendChild(buildOutOfScopeBlock(outOfScope));
+      scrollToBottom();
+      persistTurn(text, {parsed:{filters:[]}, results:[], totalMatches:0, outOfScope}, threadId, actingUsername, false);
+    }, 400);
+    return;
+  }
+
   if(looksLikeModification(text, threadId)){
     const merged = mergeWithContext(text, threadFilterContext[threadId]);
-    const doIt = async ()=>{
+    (async ()=>{
       const response = liveMode ? (await reRunWithParsed(merged, true)) : filterAndSort(merged);
       typing.remove();
       threadFilterContext[threadId] = response.parsed;
       finishTurn(turnEl, threadId, text, response, liveMode ? 'Live data' : undefined, actingUsername);
-    };
-    if(liveMode){
-      const loadingNote = document.createElement('div');
-      loadingNote.className = 'fallback-note';
-      loadingNote.textContent = 'Connecting to live data…';
-      turnEl.appendChild(loadingNote);
-      scrollToBottom();
-      doIt().then(()=> loadingNote.remove());
-    } else {
-      setTimeout(doIt, 400);
-    }
+    })();
     return;
   }
 
   if(liveMode){
-    const loadingNote = document.createElement('div');
-    loadingNote.className = 'fallback-note';
-    loadingNote.textContent = 'Connecting to live data…';
-    turnEl.appendChild(loadingNote);
-    scrollToBottom();
     runLiveBlend(text).then(({response, sourcesOk, sourcesTotal})=>{
       typing.remove();
-      loadingNote.remove();
       const label = liveSourceLabel(sourcesOk, sourcesTotal);
-      if(!label && threadId === currentThreadId){
-        const errNote = document.createElement('div');
-        errNote.className = 'fallback-note';
-        errNote.innerHTML = `<span style="color:var(--brick)">●</span> Couldn't reach any live data source right now — showing demo data instead.`;
-        turnEl.appendChild(errNote);
-      }
       threadFilterContext[threadId] = response.parsed;
       finishTurn(turnEl, threadId, text, response, label, actingUsername);
     });
@@ -1927,6 +2383,7 @@ function buildAssistantBlock(response, animate, sourceLabel){
 
   const wasLive = !!sourceLabel;
   let currentParsed = response.parsed;
+  if(currentParsed.season) currentParsedSeasonHint = currentParsed.season;
   let currentResponse = response;
   let currentPage = 1;
   const PAGE_SIZE = 10;
@@ -2208,6 +2665,8 @@ function openProfile(p){
       <div class="avatar-lg">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
       <div><div class="profile-name">${p.name}</div><div class="profile-sub">${p.pos}${p.age?' · Age '+p.age:''} · ${p.club}</div><div class="profile-value">${valueLine}</div></div>
     </div>
+    <button class="auth-btn" id="write-report-btn" style="margin-bottom:14px;">Write report</button>
+    <div id="player-reports-section"></div>
     <div class="section-label">Eligibility</div>
     ${eligibilityHtml}
     ${formHtml}
@@ -2216,6 +2675,8 @@ function openProfile(p){
     <div class="section-label">${isLive ? 'This match' : 'Season profile'}</div>
     <div id="stat-rows"></div>
   `;
+  document.getElementById('write-report-btn').onclick = ()=> openReportForm(p);
+  renderPlayerReportsSection(p);
   const rowsWrap = document.getElementById('stat-rows');
   entries.forEach(([key,val])=>{
     const maxes = {passAcc:100, aerial:7, xg:1, goals:1, tackles:4, interceptions:3, keyPasses:3, dribbles:4, turnovers:2.5, shots:8, passAtt:100, passCmp:90, appearances:40, minutes:3400, rating:10, assists:10, yellowCards:10, redCards:2, duelsWon:7};
@@ -2227,6 +2688,163 @@ function openProfile(p){
     setTimeout(()=>{ row.querySelector('.stat-bar-fill').style.width = pct+'%'; }, 120);
   });
   openSecondary('profile');
+}
+
+/* ---------------- Stories #16/#17: scouting reports ---------------- */
+let currentReportPlayer = null; // the player the open report form is for
+
+function renderPlayerReportsSection(p){
+  const wrap = document.getElementById('player-reports-section');
+  if(!wrap) return;
+  const existing = reports.filter(r => r.playerName === p.name && r.playerClub === p.club && r.status === 'submitted');
+  if(existing.length === 0){ wrap.innerHTML = ''; return; }
+  const rows = existing.slice().sort((a,b)=> b.submittedAt - a.submittedAt).map(r=>{
+    const statusTag = r.reviewStatus ? ` · <span style="color:var(--sage);">${r.reviewStatus}</span>` : ' · <span style="color:var(--text-dim);">pending review</span>';
+    return `<div class="toggle-row"><div><div class="tr-label">${r.recommendation || '(no recommendation set)'}</div><div class="tr-sub">${r.authorDisplayName} · ${new Date(r.submittedAt).toLocaleDateString()}${statusTag}</div></div></div>`;
+  }).join('');
+  wrap.innerHTML = `<div class="section-label">Reports on this player <span style="color:var(--text-dim); text-transform:none; letter-spacing:0;">— ${existing.length}</span></div>${rows}`;
+}
+
+function openReportForm(p){
+  currentReportPlayer = p;
+  document.getElementById('report-form-player-label').textContent = `${p.name} · ${p.club}`;
+  const snap = snapshotPlayerForReport(p);
+  document.getElementById('report-snapshot-note').textContent = snap.isRealNoStats
+    ? `Snapshot: identity-only record, no performance stats available at time of writing.`
+    : `Snapshot at time of writing: ${p.pos}, age ${snap.age ?? '?'}${snap.value!=null ? ', est. value £'+snap.value+'M' : ''}${snap.season ? ', '+snap.season+' season' : ''}. This won't change even if the underlying data is updated later.`;
+
+  // If this author already has a draft for this exact player, resume it instead of starting blank.
+  const draft = reports.find(r => r.playerName === p.name && r.playerClub === p.club && r.status === 'draft' && r.authorUsername === currentUser.username);
+  document.getElementById('report-recommendation').value = draft ? (draft.recommendation || '') : '';
+  document.getElementById('report-notes').value = draft ? (draft.notes || '') : '';
+  document.getElementById('report-form-error').textContent = '';
+
+  openSecondary('report-form');
+}
+
+function upsertReportDraft(status){
+  const errEl = document.getElementById('report-form-error');
+  errEl.textContent = '';
+  const recommendation = document.getElementById('report-recommendation').value;
+  const notes = document.getElementById('report-notes').value.trim();
+
+  if(status === 'submitted' && (!recommendation || !notes)){
+    errEl.textContent = 'A submitted report needs both a recommendation and notes — save as a draft if it\'s not ready yet.';
+    return null;
+  }
+
+  const p = currentReportPlayer;
+  let report = reports.find(r => r.playerName === p.name && r.playerClub === p.club && r.status === 'draft' && r.authorUsername === currentUser.username);
+  const now = Date.now();
+  if(!report){
+    report = {
+      id: 'rep_'+now+'_'+Math.random().toString(36).slice(2,7),
+      playerName: p.name, playerClub: p.club, playerPos: p.pos,
+      playerSnapshot: snapshotPlayerForReport(p),
+      authorUsername: currentUser.username, authorDisplayName: currentUser.displayName,
+      createdAt: now,
+    };
+    reports.push(report);
+  }
+  report.recommendation = recommendation;
+  report.notes = notes;
+  report.status = status;
+  report.updatedAt = now;
+  if(status === 'submitted' && !report.submittedAt){
+    report.submittedAt = now;
+    report.reviewStatus = null;
+  }
+  return report;
+}
+
+document.getElementById('report-save-draft-btn').onclick = async ()=>{
+  const report = upsertReportDraft('draft');
+  if(!report) return;
+  await saveReports();
+  closeSecondary();
+};
+
+document.getElementById('report-submit-btn').onclick = async ()=>{
+  const report = upsertReportDraft('submitted');
+  if(!report) return;
+  await saveReports();
+  await logAuditEvent(currentUser.club, 'report_submitted', { author: currentUser.displayName, player: report.playerName }); // Story #16: submission goes in the audit trail
+  renderPlayerReportsSection(currentReportPlayer);
+  closeSecondary();
+};
+
+async function renderReportsReview(){
+  if(!requireRole(['Admin','Management'], 'Reports')) return;
+  await loadReportsForClub(currentUser.club);
+  const wrap = document.getElementById('reports-review-scroll');
+  const submitted = reports.filter(r => r.status === 'submitted');
+
+  if(submitted.length === 0){
+    wrap.innerHTML = '<div class="team-empty">No submitted reports yet.</div>';
+    return;
+  }
+
+  // Story #17: group by player so multiple recommendations on the same person are easy to compare.
+  const byPlayer = {};
+  submitted.forEach(r=>{
+    const key = r.playerName + '|' + r.playerClub;
+    (byPlayer[key] = byPlayer[key] || []).push(r);
+  });
+
+  wrap.innerHTML = '';
+  Object.values(byPlayer).forEach(group=>{
+    group.sort((a,b)=> b.submittedAt - a.submittedAt);
+    const first = group[0];
+    const section = document.createElement('div');
+    section.style.marginBottom = '18px';
+    section.innerHTML = `<div class="section-label">${first.playerName} <span style="color:var(--text-dim); text-transform:none; letter-spacing:0;">— ${first.playerClub}${group.length>1 ? ' · '+group.length+' reports' : ''}</span></div>`;
+
+    group.forEach(r=>{
+      const card = document.createElement('div');
+      card.className = 'toggle-row';
+      card.style.cssText = 'flex-direction:column; align-items:stretch; gap:8px;';
+      const snap = r.playerSnapshot || {};
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+          <div>
+            <div class="tr-label">${r.recommendation}</div>
+            <div class="tr-sub">${r.authorDisplayName} · ${new Date(r.submittedAt).toLocaleString()}</div>
+          </div>
+          <span style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:${r.reviewStatus ? 'var(--sage)' : 'var(--text-dim)'};">${r.reviewStatus || 'Pending'}</span>
+        </div>
+        <div style="font-size:12.5px; color:var(--text); line-height:1.5;">${r.notes ? r.notes.replace(/</g,'&lt;') : ''}</div>
+        <div style="font-size:10.5px; color:var(--text-dim);">Snapshot at time of writing: ${snap.pos||''}${snap.age!=null?', age '+snap.age:''}${snap.value!=null?', £'+snap.value+'M':''}${snap.season?', '+snap.season+' season':''}</div>
+        <div class="review-comment-area" style="display:${r.reviewComment ? 'block' : 'none'};"></div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="btn-ghost-sm review-mark-btn" data-status="Reviewed">Mark reviewed</button>
+          <button class="btn-ghost-sm review-mark-btn" data-status="Actioned">Mark actioned</button>
+          <button class="btn-ghost-sm review-comment-btn">Add comment</button>
+        </div>
+      `;
+      if(r.reviewComment){
+        card.querySelector('.review-comment-area').innerHTML = `<div style="font-size:11.5px; color:var(--text-muted); border-left:2px solid var(--line); padding-left:8px;">${r.reviewComment.replace(/</g,'&lt;')}</div>`;
+      }
+      card.querySelectorAll('.review-mark-btn').forEach(btn=>{
+        btn.onclick = async ()=>{
+          r.reviewStatus = btn.dataset.status;
+          r.reviewedBy = currentUser.username;
+          r.reviewedAt = Date.now();
+          await saveReports();
+          await logAuditEvent(currentUser.club, 'report_reviewed', { by: currentUser.displayName, player: r.playerName, status: r.reviewStatus });
+          renderReportsReview();
+        };
+      });
+      card.querySelector('.review-comment-btn').onclick = async ()=>{
+        const comment = prompt('Add a review comment:', r.reviewComment || '');
+        if(comment === null) return; // cancelled
+        r.reviewComment = comment.trim();
+        await saveReports();
+        renderReportsReview();
+      };
+      section.appendChild(card);
+    });
+    wrap.appendChild(section);
+  });
 }
 
 /* ---------------- Secondary views (player profile / account / settings / team) ---------------- */
@@ -2245,18 +2863,21 @@ function requireRole(allowedRoles, featureName){
 
 function openSecondary(name){
   if(name === 'team' && !requireRole(['Admin'], 'Team & Invites')) return;
-  screen.classList.remove('view-profile','view-account','view-settings','view-team');
+  if(name === 'reports' && !requireRole(['Admin','Management'], 'Reports')) return;
+  screen.classList.remove('view-profile','view-account','view-settings','view-team','view-report-form','view-reports');
   screen.classList.add('secondary-open', 'view-'+name);
   closeDrawer();
   if(name === 'team') renderTeamView();
+  if(name === 'reports') renderReportsReview();
 }
 function closeSecondary(){
-  screen.classList.remove('secondary-open','view-profile','view-account','view-settings','view-team');
+  screen.classList.remove('secondary-open','view-profile','view-account','view-settings','view-team','view-report-form','view-reports');
 }
 document.querySelectorAll('[data-close-secondary]').forEach(el=> el.onclick = closeSecondary);
 document.getElementById('open-account').onclick = ()=> openSecondary('account');
 document.getElementById('open-settings').onclick = ()=> openSecondary('settings');
 document.getElementById('open-team').onclick = ()=> openSecondary('team');
+document.getElementById('open-reports').onclick = ()=> openSecondary('reports');
 
 document.querySelectorAll('.switch[data-toggle]').forEach(sw=>{
   sw.onclick = ()=> sw.classList.toggle('on');
@@ -2378,6 +2999,17 @@ function resolveQueuedTurn(q){
     persistTurn(q.text, response, q.threadId, q.actingUsername, !!sourceLabel);
   };
 
+  // Signal's back — give the queued message the same conversational treatment a live one gets.
+  if(assistantAvailable){
+    const typing = document.createElement('div');
+    typing.className = 'typing';
+    typing.innerHTML = '<i></i><i></i><i></i>';
+    q.turnEl.appendChild(typing);
+    q.typingEl.remove();
+    runAssistantMessage(q.text, q.turnEl, typing, q.threadId, q.actingUsername);
+    return;
+  }
+
   if(liveMode){
     runLiveBlend(q.text).then(({response, sourcesOk, sourcesTotal})=>{
       const label = liveSourceLabel(sourcesOk, sourcesTotal);
@@ -2416,6 +3048,34 @@ function invitesKeyFor(club){ return "recon-invites-v1:" + slugifyClub(club); }
 function permissionsKeyFor(club){ return "recon-permissions-v1:" + slugifyClub(club); }
 function dataSourcesKeyFor(club){ return "recon-datasources-v1:" + slugifyClub(club); }
 function auditLogKeyFor(club){ return "recon-auditlog-v1:" + slugifyClub(club); }
+function retentionKeyFor(club){ return "recon-retention-v1:" + slugifyClub(club); }
+
+/* ---------------- Story #21: conversation retention & GDPR erasure ---------------- */
+/* Honest limitation, same shape as story #13's licence expiry: there's no backend to run
+   this on a schedule. Retention is enforced the moment a given user's OWN history actually
+   loads (i.e. next time they log in) using the club's configured period — not proactively,
+   in the background, for everyone at once. A real production version needs a server job. */
+let retentionDays = null; // null = no auto-delete configured; ONLY currentUser's club, once loaded
+
+async function loadRetentionForClub(club){
+  try{ const raw = await kvGet(retentionKeyFor(club)); retentionDays = raw ? parseInt(raw,10) : null; }
+  catch(e){ retentionDays = null; }
+}
+async function saveRetention(){
+  await kvSet(retentionKeyFor(currentUser.club), retentionDays ? String(retentionDays) : '');
+}
+
+// GDPR erasure: deletes a user's entire thread-history key (not just hides it), strips their
+// authored reports, and removes their account if it still exists. Scoped to the calling
+// Admin's own club by construction — erasure only ever happens from within the Team screen,
+// which already only ever operates on currentUser.club's own data.
+async function eraseUserData(username){
+  await kvDelete(threadsKey(username));
+  reports = reports.filter(r => r.authorUsername !== username);
+  await saveReports();
+  if(accounts[username]){ delete accounts[username]; await saveAccounts(); }
+  await logAuditEvent(currentUser.club, 'data_erasure', { by: currentUser.displayName, username });
+}
 
 /* ---------------- Story #15: audit log ---------------- */
 /* Every login, logout, failed attempt, lockout, role change, revoke, invite, and licence
@@ -2455,11 +3115,43 @@ const AUDIT_LABELS = {
   invite_activated: (d)=> `${d.username} activated their invite`,
   access_blocked: (d)=> `${d.username} (${d.role}) was blocked from "${d.feature}"`,
   expiry_set: (d)=> `${d.by} set ${d.target}'s access to expire ${d.expiry}`,
+  report_submitted: (d)=> `${d.author} submitted a report on ${d.player}`,
+  report_reviewed: (d)=> `${d.by} marked ${d.player}'s report as ${d.status}`,
+  data_erasure: (d)=> `${d.by} erased all data for ${d.username} (GDPR request)`,
 };
 function describeAuditEvent(entry){
   const fn = AUDIT_LABELS[entry.type];
   return fn ? fn(entry.detail) : entry.type;
 }
+
+/* ---------------- Stories #16/#17: scouting reports ---------------- */
+function reportsKeyFor(club){ return "recon-reports-v1:" + slugifyClub(club); }
+let reports = []; // ONLY currentUser's club, once loaded
+
+async function loadReportsForClub(club){
+  try{ const raw = await kvGet(reportsKeyFor(club)); reports = raw ? JSON.parse(raw) : []; }
+  catch(e){ reports = []; }
+}
+let lastSaveFailedReports = false;
+async function saveReports(){
+  const ok = await kvSet(reportsKeyFor(currentUser.club), JSON.stringify(reports));
+  lastSaveFailedReports = !ok;
+  return ok;
+}
+
+// Snapshot the player's key facts AT THE MOMENT the report is written — so if the underlying
+// data later changes (a re-run script, a season update), this report still honestly reflects
+// what the recommendation was actually based on, not what's true now.
+function snapshotPlayerForReport(p){
+  return {
+    name: p.name, club: p.club, league: p.league || null, pos: p.pos, age: p.age ?? null,
+    value: p.value ?? null, gbe: p.gbe ?? null,
+    stats: p.s ? {...p.s} : null,
+    season: p.teamStats?.season ?? currentParsedSeasonHint ?? null,
+    isRealNoStats: !!p.isRealNoStats,
+  };
+}
+let currentParsedSeasonHint = null; // set whenever a search with an explicit season runs, so a report snapshot can note it even for illustrative players with no teamStats block
 
 /* Which of the 5 pre-configured sources are active for this club — an Admin toggle, NOT a
    credential-entry screen. None of Recon's sources need a user-entered key (StatsBomb and
@@ -2619,6 +3311,7 @@ function applyCurrentUserToUI(){
   document.getElementById('account-seat').textContent = currentUser.role + ' role';
   document.getElementById('account-club').textContent = currentUser.club;
   document.getElementById('open-team').style.display = (currentUser.role === 'Admin') ? 'flex' : 'none';
+  document.getElementById('open-reports').style.display = (currentUser.role === 'Admin' || currentUser.role === 'Management') ? 'flex' : 'none';
 }
 
 async function renderTeamView(){
@@ -2801,6 +3494,42 @@ async function renderTeamView(){
     dsWrap.appendChild(row);
   });
 
+  // Story #21: retention selector
+  const retentionSelect = document.getElementById('retention-select');
+  retentionSelect.value = retentionDays ? String(retentionDays) : '';
+  retentionSelect.onchange = async ()=>{
+    retentionDays = retentionSelect.value ? parseInt(retentionSelect.value,10) : null;
+    await saveRetention();
+  };
+
+  // Story #21: GDPR erasure, with a confirm step since it genuinely can't be undone
+  const eraseBtn = document.getElementById('erase-user-btn');
+  eraseBtn.dataset.confirming = 'false';
+  eraseBtn.textContent = 'Erase all data for this user';
+  eraseBtn.onclick = async ()=>{
+    const errEl = document.getElementById('erase-error');
+    errEl.textContent = '';
+    const username = document.getElementById('erase-username').value.trim().toLowerCase();
+    if(!username){ errEl.textContent = 'Enter the user\'s email address.'; return; }
+    if(username === currentUser.username){ errEl.textContent = 'You can\'t erase your own account while signed in as it.'; return; }
+    // Only ever erase someone who actually belongs to this Admin's own club — accounts is
+    // already scoped to currentUser.club, so this check enforces club isolation (#11) here too.
+    if(!accounts[username]){ errEl.textContent = 'No user with that email exists at this club.'; return; }
+
+    if(eraseBtn.dataset.confirming !== 'true'){
+      eraseBtn.dataset.confirming = 'true';
+      eraseBtn.textContent = 'Tap again to permanently erase';
+      setTimeout(()=>{ if(eraseBtn.isConnected){ eraseBtn.dataset.confirming='false'; eraseBtn.textContent='Erase all data for this user'; } }, 4000);
+      return;
+    }
+    await eraseUserData(username);
+    document.getElementById('erase-username').value = '';
+    errEl.style.color = 'var(--sage)';
+    errEl.textContent = `All data for ${username} has been erased.`;
+    setTimeout(()=>{ errEl.style.color = ''; errEl.textContent = ''; }, 4000);
+    renderTeamView();
+  };
+
   // Story #15: render the audit log, most recent first. Reloaded fresh each time this screen
   // opens so an Admin always sees events from other sessions/tabs too, not a stale snapshot.
   await loadAuditLogForClub(currentUser.club);
@@ -2872,6 +3601,8 @@ async function enterApp(){
   await loadPermissionsForClub(currentUser.club);
   await loadDataSourcesForClub(currentUser.club);
   await loadAuditLogForClub(currentUser.club);
+  await loadReportsForClub(currentUser.club);
+  await loadRetentionForClub(currentUser.club); // must be before loadThreads() — that's where pruning actually applies
   markActivity();
   startSessionWatch();
   applyCurrentUserToUI();
@@ -3064,6 +3795,9 @@ async function signOut(reason){
   accounts = {};
   invites = {};
   permissions = {};
+  reports = [];
+  enabledSources = {};
+  auditLog = [];
   currentUser = null;
   closeSecondary();
   showAuthGate();
@@ -3102,6 +3836,16 @@ async function bootAuth(){
 
 document.getElementById('back-btn').onclick = closeSecondary;
 bootAuth();
+
+// PWA: enables offline app loading (not just offline query queuing, which already
+// exists separately) and "Add to Home Screen" installability on Android/Chrome.
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('recon-service-worker.js').catch(()=>{
+      // Non-fatal if this fails — the app still works online, just without offline app-shell caching.
+    });
+  });
+}
 </script>
 </body>
 </html>
