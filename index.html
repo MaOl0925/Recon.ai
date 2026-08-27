@@ -503,7 +503,7 @@
               <option value="365">1 year</option>
             </select>
           </div>
-          <div class="auth-note">Applies to each user's saved conversations when they next sign in. Without a backend there's no scheduled job, so this can't run in the background for everyone at once — a production deployment needs a server-side task for that. Conversations contain player personal data (and, via the Academy role, potentially youth data), so a retention period should be set deliberately with legal input rather than left indefinite.</div>
+          <div class="auth-note">Applies to each user's saved conversations, and to submitted reports (drafts are never auto-deleted), when they next sign in. Without a backend there's no scheduled job, so this can't run in the background for everyone at once — a production deployment needs a server-side task for that. Conversations and reports contain player personal data (and, via the Academy role, potentially youth data), so a retention period should be set deliberately with legal input rather than left indefinite.</div>
 
           <div class="section-label">Erase a user's data (GDPR)</div>
           <div class="add-filter-row"><label>User email</label><input id="erase-username" type="text" placeholder="person@club.co.uk"></div>
@@ -695,7 +695,34 @@ const METRIC_MAP = [
   {test:/tackl|defensive action/i, key:"tackles", label:"Tackles/90 — Top range", dir:-1},
   {test:/dribbl/i, key:"dribbles", label:"Successful dribbles/90 — Top range", dir:-1},
   {test:/interception/i, key:"interceptions", label:"Interceptions/90 — Top range", dir:-1},
+  // Composite metrics — built ONLY from the real per-90 fields already in this dataset, no
+  // invented inputs. Placed after the plain-stat entries so an unambiguous single-stat mention
+  // ("tackles") still wins over a composite ("defensive output") for a query that could read
+  // either way.
+  {test:/defensive output|combined defen[sc]ive (action|output)|overall defen[sc]ive (contribution|output)/i, key:"defOutput", label:"Defensive output/90 (tackles + interceptions) — Top range", dir:-1},
+  {test:/progression (score|proxy|rating|output)|creative progression|carries? and (creat|key pass)/i, key:"creativeProg", label:"Progression/90 (key passes + dribbles) — Top range", dir:-1},
+  {test:/value efficiency|bang for (your |the )?buck|best value for money|output per (£|pound)|per £ ?m\b|value for money/i, key:"valueEff", label:"Output per £M value — Top range", dir:-1},
 ];
+
+// Composite metrics — every input is a real field already present in the dataset, nothing
+// invented. Where a field doesn't exist for a given position (e.g. this dataset only tracks
+// "dribbles" for wingers), it degrades to 0 rather than crashing — the metric narrows to
+// whatever real signal exists for that position instead of silently fabricating a number.
+function computeDefOutput(p){ return (p.s.tackles||0) + (p.s.interceptions||0); }
+function computeCreativeProg(p){ return (p.s.keyPasses||0) + (p.s.dribbles||0); }
+function computeValueEffNumerator(p){
+  if(p.pos === 'CB' || p.pos === 'FB' || p.pos === 'DEF') return computeDefOutput(p);
+  if(p.pos === 'WG' || p.pos === 'CM') return computeCreativeProg(p);
+  if(p.pos === 'ST') return p.s.goals || 0;
+  return 0;
+}
+const COMPUTED_METRICS = {
+  xgdiff_over: { compute: p => p.s.goals - p.s.xg, label: "G−xG/90", format: v => v.toFixed(2) },
+  xgdiff_under: { compute: p => p.s.goals - p.s.xg, label: "G−xG/90", format: v => v.toFixed(2) },
+  defOutput: { compute: computeDefOutput, label: "DEF OUTPUT/90", format: v => v.toFixed(1) },
+  creativeProg: { compute: computeCreativeProg, label: "PROGRESSION/90", format: v => v.toFixed(1) },
+  valueEff: { compute: p => p.value > 0 ? computeValueEffNumerator(p) / p.value : 0, label: "OUTPUT/£M", format: v => v.toFixed(2) },
+};
 
 // #7: nickname + typo-tolerant club matching. Real common nicknames checked first (fast,
 // no false positives); genuine typos caught by edit-distance as a fallback.
@@ -762,18 +789,32 @@ const RESERVED_FILTER_WORDS = new Set([
   "turnover","turnovers","creativ","creative","creation","tackle","tackles","tackling","dribble","dribbles",
   "dribbling","interception","interceptions","clinical","struggling","budget","season","eligible","eligibility",
   "league","championship","division","players","player","under","over","above","below","aged","years",
+  // STAB-02: high-frequency ordinary query vocabulary that was colliding with real club names at
+  // edit-distance 1 ("best"~West Brom, "worth"~Preston North End) — same root cause as the
+  // earlier some~Stoke/wingers~tigers/afford~Watford fixes, just not caught until a live report.
+  "best","worth","want","show","good","great","most","some","find","give","bring","need","like",
+  "have","that","this","with","from","who","which","what","value","stats","rank","ranked","list",
 ]);
 
-function detectClub(text){
+// Exact/alias matching only, no fuzzy fallback — used where a wrong guess is genuinely risky
+// (invite activation: a mismatched fuzzy match there would mean activating into the wrong
+// club's account, not just a mildly annoying search result).
+function detectClubExact(text){
   const lower = text.toLowerCase();
-  // Fast path: official name or a known nickname appears as a substring — no false positives.
   for(const [official, aliases] of Object.entries(CLUB_ALIASES)){
     if(lower.includes(official.toLowerCase())) return official;
     for(const alias of aliases){ if(alias && new RegExp('\\b'+alias.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i').test(lower)) return official; }
   }
+  return null;
+}
+
+function detectClub(text){
+  const exact = detectClubExact(text);
+  if(exact) return exact;
   // Fallback: genuine typo tolerance — fuzzy-match each word/short phrase in the query against
   // every club name and alias, accept only a close, confident match (short edit distance
   // relative to word length) so this doesn't start matching unrelated words.
+  const lower = text.toLowerCase();
   const words = lower.split(/\s+/).filter(w=>w.length>=4 && !RESERVED_FILTER_WORDS.has(w));
   let best = null, bestDist = Infinity;
   for(const [official, aliases] of Object.entries(CLUB_ALIASES)){
@@ -921,6 +962,30 @@ const NLQ_METRIC_KEYS = METRIC_MAP.map(m=>m.key);
 // see the deployment steps for exactly where to find it and how to swap it in.
 // Shared by both the query parser and the results summary below — one place to update.
 const NLQ_PROXY_URL = "https://my-pm-worker.dkelly668.workers.dev/";
+const SPORTMONKS_PROXY_BASE = NLQ_PROXY_URL.replace(/\/$/, '') + "/sportmonks"; // same Worker, different path — see recon-proxy-worker.js
+
+/* ---------------- SportMonks: Scottish Premiership + Danish Superliga ----------------
+   First real call wired through the new Worker route. This covers standings only, as the
+   concrete starting example — the fuller "real Scottish Premiership replaces illustrative
+   players" integration (discussed and agreed earlier) is a bigger follow-on piece, not done
+   in this pass. This function proves the plumbing works end to end: browser -> Worker ->
+   SportMonks -> back, with the real api_token never touching the browser. */
+let sportMonksStandingsCache = {}; // keyed by league id
+async function loadSportMonksStandings(leagueId, seasonId){
+  const cacheKey = `${leagueId}:${seasonId}`;
+  if(sportMonksStandingsCache[cacheKey]) return sportMonksStandingsCache[cacheKey];
+  const url = `${SPORTMONKS_PROXY_BASE}/standings?filters=seasonId:${seasonId}&league=${leagueId}`;
+  const res = await fetch(url);
+  if(!res.ok){
+    let detail = '';
+    try{ detail = JSON.stringify(await res.json()); }catch(e){}
+    throw new Error(`SportMonks standings fetch failed: HTTP ${res.status} ${detail}`);
+  }
+  const data = await res.json();
+  sportMonksStandingsCache[cacheKey] = data;
+  return data;
+}
+
 
 /* ================= Conversational assistant =================
    The structural change: previously the APP decided what every message meant (always:
@@ -946,7 +1011,7 @@ const ASSISTANT_TOOLS = [
         ageMax: { type: "number" },
         budgetMaxM: { type: "number", description: "Maximum market value in millions of pounds" },
         gbeRequired: { type: "boolean", description: "Only true if the user explicitly asks about visa/work-permit/GBE eligibility" },
-        metric: { type: "string", enum: ["aerial","passAcc","turnovers","keyPasses","tackles","dribbles","interceptions","xg","xgdiff_under","xgdiff_over"], description: "Rank results by this metric. xgdiff_over = overperforming xG (clinical finishers); xgdiff_under = underperforming xG" },
+        metric: { type: "string", enum: ["aerial","passAcc","turnovers","keyPasses","tackles","dribbles","interceptions","xg","xgdiff_under","xgdiff_over","defOutput","creativeProg","valueEff"], description: "Rank results by this metric. xgdiff_over = overperforming xG (clinical finishers); xgdiff_under = underperforming xG. defOutput = tackles+interceptions/90 (defensive workload). creativeProg = key passes+dribbles/90 (note: dribbles only exists for wingers in this dataset, so for other positions this is effectively key passes alone). valueEff = the position-appropriate output metric divided by market value in £M — a 'bang for buck' ranking." },
         limit: { type: "number", description: "Maximum number of results to return (1-200)" },
       },
     },
@@ -971,12 +1036,15 @@ function assistantSystemPrompt(){
 
 You have a player database covering the Championship, League One, League Two, Scottish Premiership, and Eredivisie, for the 2022, 2023, and 2024 seasons. For each player you can see: position, club, league, age, estimated market value, GBE eligibility, and per-90 performance stats (aerial duels, pass accuracy, tackles, interceptions, key passes, dribbles, turnovers, xG, goals, assists, appearances, minutes, rating, cards, duels won).
 
+Three composite metrics are also available (defOutput, creativeProg, valueEff) — each is a plain sum or ratio of the real fields above, nothing more. If asked what they measure, describe them exactly: defOutput is tackles+interceptions per 90; creativeProg is key passes+dribbles per 90 (dribbles data only exists for wingers, so for other positions it's effectively key passes alone — say so if asked); valueEff divides a position-appropriate output figure by market value. Never describe these as advanced tracking-data metrics or imply they use data beyond what's listed above.
+
 How to behave:
 - Use the search_players tool whenever a real answer needs real data. Don't guess at player names or stats — you cannot know them without searching.
 - You can also just talk. If someone asks what GBE means, how to interpret xG, or what you'd look for in a full-back, answer directly without searching.
 - Be concise and direct — this is used pitch-side on a phone, often one-handed. Lead with the answer.
 - CRITICAL FORMATTING RULE: your reply is rendered as plain text — no markdown, no tables, no bullet-point lists, no headers, no bold/asterisks. Never format a table (no "| Name | Club | Age |" style rows, no ASCII table borders). When you search, the actual players already appear as real cards directly under your reply, so don't re-list them — write short, flowing prose instead: reference at most 2-3 players by name inline, with the specific number that makes each one worth mentioning, the way you'd talk to a colleague, not the way you'd write a report. If a request doesn't need commentary beyond the search itself, a single short sentence is enough.
 - Never invent a player, a statistic, or a fact. If the data doesn't cover something (injuries, contracts, wages, transfer history, physical attributes, competitions outside those five leagues, or anything predictive), say so plainly — a gap must never look like a finding.
+- If a search result includes liveDataSources showing fewer sources reachable than total, mention it briefly (e.g. "club form data wasn't available for this one") — don't stay silent about a partial connection.
 - If a request is genuinely ambiguous, ask rather than guessing.
 - The illustrative player pool is generated demo data, not verified real-world performance. Don't present it as fact about real people if asked directly what it is.`;
 }
@@ -1000,42 +1068,52 @@ async function executeAssistantTool(toolName, input){
     };
     parsed.filters = rebuildFiltersDisplay(parsed);
     const response = liveMode ? await reRunWithParsed(parsed, true) : filterAndSort(parsed);
-    lastAssistantSearchResponse = response; // kept so the UI can render the real result cards alongside the prose
 
     return {
-      totalMatches: response.totalMatches,
-      filtersApplied: response.parsed.filters.map(f=>`${f.t}: ${f.v}`),
-      relaxedFilters: response.droppedFilters || [],
-      players: response.results.slice(0, 20).map(p=>({
-        name: p.name, club: p.club, league: p.league, pos: p.pos, age: p.age,
-        valueM: p.value, gbeEligible: p.gbe,
-        keyStat: p.statLabel && p.statVal !== undefined ? `${p.statLabel}: ${p.statVal}` : undefined,
-        stats: p.isRealNoStats ? "identity-only record, no performance stats" : p.s,
-      })),
+      uiResponse: response, // the real object, returned directly to THIS call's caller — never a shared global another concurrent message could overwrite
+      modelResult: {
+        totalMatches: response.totalMatches,
+        filtersApplied: response.parsed.filters.map(f=>`${f.t}: ${f.v}`),
+        relaxedFilters: response.droppedFilters || [],
+        liveDataSources: response.sourcesTotal
+          ? `${response.sourcesOk} of ${response.sourcesTotal} live data sources reachable for this search — mention it only if fewer than the total connected, since that means some enrichment (club form, standings, team records) may be missing for these results`
+          : "live data mode is off — results are from the illustrative demo pool only",
+        players: response.results.slice(0, 20).map(p=>({
+          name: p.name, club: p.club, league: p.league, pos: p.pos, age: p.age,
+          valueM: p.value, gbeEligible: p.gbe,
+          keyStat: p.statLabel && p.statVal !== undefined ? `${p.statLabel}: ${p.statVal}` : undefined,
+          stats: p.isRealNoStats ? "identity-only record, no performance stats" : p.s,
+        })),
+      },
     };
   }
 
   if(toolName === "get_player_details"){
     const match = POOL.find(p => p.name.toLowerCase() === String(input.name||'').toLowerCase() && (!input.club || p.club === input.club))
       || POOL.find(p => p.name.toLowerCase().includes(String(input.name||'').toLowerCase()));
-    if(!match) return { error: `No player named "${input.name}" found in the database.` };
+    if(!match) return { uiResponse: null, modelResult: { error: `No player named "${input.name}" found in the database.` } };
     return {
-      name: match.name, club: match.club, league: match.league, pos: match.pos,
-      age: match.age, valueM: match.value, gbeEligible: match.gbe,
-      statsBySeason: match.seasons || { current: match.s },
+      uiResponse: null,
+      modelResult: {
+        name: match.name, club: match.club, league: match.league, pos: match.pos,
+        age: match.age, valueM: match.value, gbeEligible: match.gbe,
+        statsBySeason: match.seasons || { current: match.s },
+      },
     };
   }
 
-  return { error: `Unknown tool: ${toolName}` };
+  return { uiResponse: null, modelResult: { error: `Unknown tool: ${toolName}` } };
 }
-
-let lastAssistantSearchResponse = null; // most recent real search result, for rendering cards under the prose
 
 /* Runs a full conversation turn: sends history + tools, streams the reply, executes any
    tool calls the model requests, and loops until it produces a final text answer.
-   onTextChunk fires per streamed token so the UI can render progressively. */
+   onTextChunk fires per streamed token so the UI can render progressively. Returns
+   {text, searchResponse} — searchResponse is LOCAL to this specific call, never a shared
+   global, so two messages sent in quick succession can never cross-contaminate each other's
+   results. */
 async function runAssistantTurn(messages, onTextChunk, onToolUse){
   let conversationMessages = messages.slice();
+  let capturedSearchResponse = null; // scoped to this call only
 
   for(let round = 0; round < 5; round++){ // bounded — prevents a runaway tool loop
     const res = await fetch(NLQ_PROXY_URL, {
@@ -1055,7 +1133,7 @@ async function runAssistantTurn(messages, onTextChunk, onToolUse){
     const { textOut, toolUses, stopReason } = await readAnthropicStream(res, onTextChunk);
 
     if(stopReason !== 'tool_use' || toolUses.length === 0){
-      return textOut; // final answer — done
+      return { text: textOut, searchResponse: capturedSearchResponse }; // final answer — done
     }
 
     // Model asked for tools: run them, feed results back, loop.
@@ -1067,15 +1145,16 @@ async function runAssistantTurn(messages, onTextChunk, onToolUse){
     const toolResults = [];
     for(const tu of toolUses){
       if(onToolUse) onToolUse(tu.name, tu.input);
-      let result;
-      try{ result = await executeAssistantTool(tu.name, tu.input); }
-      catch(e){ result = { error: 'Tool failed: ' + e.message }; }
-      toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(result) });
+      let outcome;
+      try{ outcome = await executeAssistantTool(tu.name, tu.input); }
+      catch(e){ outcome = { uiResponse: null, modelResult: { error: 'Tool failed: ' + e.message } }; }
+      if(outcome.uiResponse) capturedSearchResponse = outcome.uiResponse; // most recent search WITHIN this call — safe, since this whole function is local to one message
+      toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(outcome.modelResult) });
     }
     conversationMessages.push({ role: 'user', content: toolResults });
   }
 
-  return "I got stuck working through that — try rephrasing?";
+  return { text: "I got stuck working through that — try rephrasing?", searchResponse: capturedSearchResponse };
 }
 
 // Parses Anthropic's SSE stream, accumulating text and any tool_use blocks.
@@ -1278,9 +1357,13 @@ const OUT_OF_SCOPE_TOPICS = [
   {re:/\bcontract|\bwage|\bsalary|\brelease clause|\bagent\b|\bcontract expir/i, what:"contract, wage, and agent data"},
   {re:/\btransfer fee paid|\bsold for|\bbought for|\btransfer history/i, what:"historical transfer fee data"},
   {re:/\bpremier league|\bla liga|\bserie a|\bbundesliga|\bligue 1|\bchampions league|\beuropa/i, what:"competitions outside the Championship, League One/Two, Scottish Premiership, and Eredivisie"},
-  {re:/\bheight\b|\bweight\b|\bhow tall\b|\bhow heavy\b|\bpreferred foot|\bleft.footed|\bright.footed/i, what:"physical attributes like height, weight, and preferred foot"},
+  // OTHER-02: "weight of pass/shot" is standard football terminology for quality, not a body-weight
+  // question — excluded explicitly rather than just matching the bare word "weight".
+  {re:/\bheight\b|\bweight\b(?!\s+of\s+(a\s+)?(pass|shot))|\bhow tall\b|\bhow heavy\b|\bpreferred foot|\bleft.footed|\bright.footed/i, what:"physical attributes like height, weight, and preferred foot"},
   {re:/\bpredict|\bwill he\b|\bwill they\b|\bnext season'?s? (form|stats)|\bforecast/i, what:"predictive or forecasting data — Recon reports what happened, it doesn't project forward"},
-  {re:/\bhow much (is|are) .* worth\b|\bmarket value trend|\bvalue over time/i, what:"market value history or trend data (only a single current estimate exists)"},
+  // OTHER-02: only block TREND/history language — a plain "how much is he worth" is a snapshot ask
+  // Recon can actually answer (p.value), only the trend framing is genuinely out of scope.
+  {re:/market value trend|value over time|value (history|since)|how (has|has his) value (changed|moved)|value (increased|decreased|risen|fallen)/i, what:"market value history or trend data (only a single current estimate exists, not how it's changed over time)"},
 ];
 
 function detectOutOfScope(text){
@@ -1385,8 +1468,9 @@ function filterAndSort(parsed){
 
   const sortKey = effectiveParsed.metric ? effectiveParsed.metric.key : null;
   const sortDir = effectiveParsed.metric && effectiveParsed.metric.dir !== undefined ? effectiveParsed.metric.dir : -1;
-  if(sortKey === "xgdiff_under" || sortKey === "xgdiff_over"){
-    pool.sort((a,b)=> sortDir * ((a.s.goals-a.s.xg) - (b.s.goals-b.s.xg))); // was hardcoded ascending regardless of direction — this was the actual bug
+  if(sortKey && COMPUTED_METRICS[sortKey]){
+    const fn = COMPUTED_METRICS[sortKey].compute;
+    pool.sort((a,b)=> sortDir * (fn(a) - fn(b)));
   } else if(sortKey){
     pool.sort((a,b)=> sortDir * ((a.s[sortKey]||0) - (b.s[sortKey]||0)));
   } else if(canSee('value')){
@@ -1399,8 +1483,11 @@ function filterAndSort(parsed){
   if(effectiveParsed.resultLimit) pool = pool.slice(0, effectiveParsed.resultLimit); // applied AFTER sort, so "top 5" is genuinely the best 5, not an arbitrary 5
   const results = pool.map(p=>{ // ALL matches (or the requested top N) — pagination handles display size beyond that, not the search itself
     let statLabel, statVal;
-    if(sortKey === "xgdiff_under" || sortKey === "xgdiff_over"){ statLabel="G−xG/90"; statVal=(p.s.goals-p.s.xg).toFixed(2); }
-    else if(sortKey && p.s[sortKey]!==undefined){
+    if(sortKey && COMPUTED_METRICS[sortKey]){
+      const m = COMPUTED_METRICS[sortKey];
+      statLabel = m.label;
+      statVal = m.format(m.compute(p));
+    } else if(sortKey && p.s[sortKey]!==undefined){
       statLabel = {aerial:"AER/90",passAcc:"PASS%",turnovers:"TO/90",keyPasses:"KP/90",tackles:"TKL/90",dribbles:"DRB/90",interceptions:"INT/90",xg:"xG"}[sortKey] || sortKey;
       statVal = sortKey==="passAcc" ? p.s[sortKey]+"%" : p.s[sortKey];
     } else { statLabel="VALUE"; statVal="£"+p.value+"M"; }
@@ -1696,10 +1783,11 @@ async function enrichWithStandings(results){
    a club there is the ONLY step needed; nothing here needs hand-editing per club.
    Reads committed static files, same safe pattern as football-data.org and
    efl-squads — no key involved at runtime. */
-const TEAM_STATS_SEASON = 2024; // most recent season the free plan allows
+const TEAM_STATS_DEFAULT_SEASON = 2024; // used only when a search doesn't specify a season at all
 let teamStatsIndex = null;
 let teamStatsIndexLoadFailed = false;
-let teamStatsCache = {};
+let teamStatsCache = {}; // keyed by "teamId_season" now, not just teamId — different seasons of the same team are genuinely different files
+let teamStatsLoadPromises = {}; // same "teamId_season" keying, dedupes concurrent callers before any of them have resolved yet
 
 async function loadTeamStatsIndex(){
   if(teamStatsIndex) return teamStatsIndex;
@@ -1715,20 +1803,26 @@ async function loadTeamStatsIndex(){
   }
 }
 
-async function loadTeamStats(teamId){
-  if(teamStatsCache[teamId]) return teamStatsCache[teamId];
-  const res = await fetch(`data/team-stats/${teamId}_${TEAM_STATS_SEASON}.json`);
-  if(!res.ok) throw new Error('team-stats fetch failed: ' + teamId + ' (' + res.status + ')');
-  const data = await res.json();
-  teamStatsCache[teamId] = data;
-  return data;
+async function loadTeamStats(teamId, season){
+  const cacheKey = `${teamId}_${season}`;
+  if(teamStatsCache[cacheKey]) return teamStatsCache[cacheKey];
+  if(teamStatsLoadPromises[cacheKey]) return teamStatsLoadPromises[cacheKey];
+  teamStatsLoadPromises[cacheKey] = (async ()=>{
+    const res = await fetch(`data/team-stats/${teamId}_${season}.json`);
+    if(!res.ok) throw new Error('team-stats fetch failed: ' + teamId + ' season ' + season + ' (' + res.status + ')'); // that team/season combination hasn't been fetched — caller skips this player's enrichment rather than showing a different season mislabeled
+    const data = await res.json();
+    teamStatsCache[cacheKey] = data;
+    return data;
+  })();
+  try{ return await teamStatsLoadPromises[cacheKey]; }
+  finally{ delete teamStatsLoadPromises[cacheKey]; } // clear regardless of success/failure so a later retry isn't stuck reusing a rejected promise
 }
 
-function summarizeTeamStats(data){
+function summarizeTeamStats(data, season){
   const fx = data.fixtures || {};
   const goals = data.goals || {};
   return {
-    season: TEAM_STATS_SEASON,
+    season, // the ACTUAL season this data is for — never the hardcoded default, so a "2023" search never shows 2024 stats mislabeled
     played: fx.played?.total ?? null,
     wins: fx.wins?.total ?? null,
     draws: fx.draws?.total ?? null,
@@ -1739,17 +1833,18 @@ function summarizeTeamStats(data){
   };
 }
 
-async function enrichWithTeamStats(results){
+async function enrichWithTeamStats(results, requestedSeason){
+  const season = requestedSeason || TEAM_STATS_DEFAULT_SEASON; // no season specified in the search -> most recent allowed season, same as before
   const index = await loadTeamStatsIndex();
   if(!index) return false;
   const outcomes = await Promise.all(results.map(async p=>{
     const teamId = index[p.club];
     if(!teamId) return false;
     try{
-      const data = await loadTeamStats(teamId);
-      p.teamStats = summarizeTeamStats(data);
+      const data = await loadTeamStats(teamId, season);
+      p.teamStats = summarizeTeamStats(data, season);
       return true;
-    } catch(e){ return false; /* this club is in the index but that season's file is missing — skip silently */ }
+    } catch(e){ return false; /* this club is in the index but this specific season's file is missing — skip silently, never fall back to a different season and mislabel it */ }
   }));
   return outcomes.some(Boolean);
 }
@@ -1763,6 +1858,7 @@ async function enrichWithTeamStats(results){
    misrepresent them as real data. Shown as a clearly separate "Real squad" section, not blended
    into the illustrative stat-driven results. */
 const EFL_SQUADS_FILE = "data/efl-squads.json";
+const LOWERLEAGUE_SQUADS_FILE = "data/lowerleague-squads.json";
 let eflSquadsCache = null;
 let eflSquadsLoadPromise = null;
 
@@ -1777,9 +1873,26 @@ async function loadEflSquads(){
     const flat = [];
     (data.clubs || []).forEach(c=>{
       (c.players || []).forEach(p=>{
-        flat.push({ name: p.name, age: p.age, position: p.position, number: p.number, photo: p.photo, club: c.club });
+        flat.push({ id: p.id, name: p.name, age: p.age, position: p.position, number: p.number, photo: p.photo, club: c.club });
       });
     });
+
+    // Merge in League One/Two real squads too, if that file's been fetched — same flattened
+    // shape, same pool, so every existing filter/search/merge function just works unchanged.
+    // Genuinely optional: if fetch-lowerleague-squads.js hasn't been run yet, this silently
+    // adds nothing rather than failing the whole load.
+    try{
+      const llRes = await fetch(LOWERLEAGUE_SQUADS_FILE);
+      if(llRes.ok){
+        const llData = await llRes.json();
+        (llData.clubs || []).forEach(c=>{
+          (c.players || []).forEach(p=>{
+            flat.push({ id: p.id, name: p.name, age: p.age, position: p.position, number: p.number, photo: p.photo, club: c.club });
+          });
+        });
+      }
+    } catch(e){ /* file not deployed yet — fine, Championship-only real squads still work */ }
+
     if(flat.length === 0) throw new Error('efl-squads.json: no players loaded');
     eflSquadsCache = flat;
     return eflSquadsCache;
@@ -1789,6 +1902,30 @@ async function loadEflSquads(){
   });
 
   return eflSquadsLoadPromise;
+}
+
+const PLAYER_STATS_FILE = "data/player-stats.json";
+let playerStatsCache = null; // Map keyed by player id, built once and reused
+let playerStatsLoadPromise = null;
+
+async function loadPlayerStats(){
+  if(playerStatsCache) return playerStatsCache;
+  if(playerStatsLoadPromise) return playerStatsLoadPromise;
+
+  playerStatsLoadPromise = (async ()=>{
+    const res = await fetch(PLAYER_STATS_FILE);
+    if(!res.ok) throw new Error('player-stats fetch failed: ' + res.status);
+    const data = await res.json();
+    const byId = new Map();
+    (data.players || []).forEach(p=>{ if(p.id != null) byId.set(p.id, p); });
+    playerStatsCache = byId;
+    return playerStatsCache;
+  })().catch(err=>{
+    playerStatsLoadPromise = null;
+    throw err;
+  });
+
+  return playerStatsLoadPromise;
 }
 
 // API-Football's own coarse buckets — broader than the illustrative pool's CB/FB/WG/ST/CM,
@@ -1807,7 +1944,7 @@ async function realSquadFromParsed(parsed){
   }
   if(parsed.ageMin) pool = pool.filter(p => p.age && p.age >= parsed.ageMin);
   if(parsed.ageMax) pool = pool.filter(p => p.age && p.age <= parsed.ageMax);
-  if(parsed.league) pool = pool.filter(p => CLUB_LEAGUE[p.club] === parsed.league); // efl-squads is Championship-only today, so a non-Championship league search correctly returns zero real matches, not everyone
+  if(parsed.league) pool = pool.filter(p => CLUB_LEAGUE[p.club] === parsed.league); // real squads now cover Championship + League One/Two (whichever have actually had their fetch script run) — any other league correctly returns zero real matches, not everyone
   if(parsed.club) pool = pool.filter(p => p.club === parsed.club);
   if(parsed.nameQuery) pool = pool.filter(p => p.name.toLowerCase().includes(parsed.nameQuery.toLowerCase())); // same exact-substring rule as the main name search — no fuzzy substitution here either
   // budget/GBE/performance metrics still have no equivalent in this real-identity-only source — that part of the original note still holds
@@ -1839,6 +1976,19 @@ async function kvDelete(key){
     try{ await window.storage.delete(key); return true; } catch(e){ return false; }
   }
   try{ localStorage.removeItem(key); return true; } catch(e){ return false; }
+}
+async function kvList(prefix){
+  if(hasNativeStorage){
+    try{ const r = await window.storage.list(prefix); return r ? r.keys : []; } catch(e){ return []; }
+  }
+  try{
+    const keys = [];
+    for(let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      if(k && k.startsWith(prefix)) keys.push(k);
+    }
+    return keys;
+  } catch(e){ return []; }
 }
 
 /* ---------------- Persistent chat history ---------------- */
@@ -1932,6 +2082,13 @@ function openThread(id){
   chatScroll.innerHTML = '';
   document.getElementById('starter-chips').classList.add('hide');
   th.turns.forEach(turn=> renderStaticTurn(turn));
+
+  // STAB-03: without this, "remove the budget filter" typed right after reopening an old
+  // conversation was silently treated as a brand-new search (no context existed for this
+  // threadId yet), landing on the full-pool fallback instead of actually editing anything.
+  const lastTurnWithFilters = th.turns.slice().reverse().find(t => t.response && t.response.parsed);
+  if(lastTurnWithFilters) threadFilterContext[id] = lastTurnWithFilters.response.parsed;
+
   closeDrawer();
   scrollToBottom();
   renderDrawer();
@@ -2026,15 +2183,41 @@ input.addEventListener('keydown', e=>{ if(e.key==='Enter') sendMessage(); });
 /* Merges real-squad players (identity only, no performance stats) into the same results array
    used for pagination — appended AFTER the stat-sorted illustrative players, so they land on
    later pages naturally rather than needing a separate section/badge block. Each is tagged
-   isRealNoStats so the card renderer can style it distinctly and skip opening a profile (there's
-   no stat data to show). */
-function mergeRealSquadIntoResults(response){
+/* isRealNoStats so the card renderer can style it distinctly and skip opening a profile (there's
+   no stat data to show) — UNLESS real per-player stats exist for THIS SPECIFIC SEASON (matched
+   by id against data/player-stats.json's nested seasons object), in which case they get real
+   stats attached instead of the placeholder. If the requested season wasn't fetched (or was
+   fetched and confirmed empty) for this player, they show as no-stats for THAT search — never
+   silently shown a different season's numbers mislabeled as the one asked for. Given
+   fetch-player-stats.js only adds 5 new players per run, most real-squad players will still show
+   'no stats' for a long time — this only upgrades the ones that genuinely have real data fetched
+   for the specific season being searched. */
+async function mergeRealSquadIntoResults(response){
   if(!response.realSquad || !response.realSquad.players || response.realSquad.players.length === 0) return;
-  const normalized = response.realSquad.players.map(rp => ({
-    name: rp.name, club: rp.club, age: rp.age, pos: rp.position,
-    value: undefined, gbe: undefined, s: {},
-    isRealNoStats: true, statLabel: 'DATA', statVal: '—',
-  }));
+
+  let statsById = new Map();
+  try{ statsById = await loadPlayerStats(); } catch(e){ /* file may not exist yet, or fetch failed — fall back to no-stats cards below, same as before this feature existed */ }
+
+  const requestedSeason = response.parsed?.season || TEAM_STATS_DEFAULT_SEASON; // no season specified -> most recent allowed, same default as team stats
+
+  const normalized = response.realSquad.players.map(rp => {
+    const entry = rp.id != null ? statsById.get(rp.id) : null;
+    const real = entry && entry.seasons ? entry.seasons[requestedSeason] : null; // specific season only — no fallback to a different one
+    if(!real){
+      return { name: rp.name, club: rp.club, age: rp.age, pos: rp.position, value: undefined, gbe: undefined, s: {}, isRealNoStats: true, statLabel: 'DATA', statVal: '—' };
+    }
+    return {
+      name: rp.name, club: rp.club, age: rp.age, pos: rp.position, value: undefined, gbe: undefined,
+      s: {
+        goals: real.goals, assists: real.assists, tackles: real.tackles, interceptions: real.interceptions,
+        keyPasses: real.keyPasses, passAcc: real.passAccuracy, dribbles: real.dribblesSuccess,
+        shotConversionRate: real.shotConversionRate, shotAccuracy: real.shotAccuracy, disciplineRatio: real.disciplineRatio,
+      },
+      isRealNoStats: false,
+      statLabel: 'RATING', statVal: real.rating != null ? real.rating : '—',
+    };
+  });
+
   const illustrativeCount = response.results.length;
   response.results = response.results.concat(normalized);
   response.totalMatches = illustrativeCount + normalized.length;
@@ -2066,11 +2249,11 @@ async function runLiveBlend(text){
     enabled.statsbomb ? loadLiveData().then(()=>true).catch(()=>false) : Promise.resolve(false),
     enabled.openfootball ? enrichWithClubForm(response.results) : Promise.resolve(false),
     enabled.footballdata ? enrichWithStandings(response.results) : Promise.resolve(false),
-    enabled.teamstats ? enrichWithTeamStats(response.results) : Promise.resolve(false),
+    enabled.teamstats ? enrichWithTeamStats(response.results, response.parsed.season) : Promise.resolve(false),
     enabled.eflsquads ? realSquadFromParsed(response.parsed) : Promise.resolve(null), // DEF-08: reuses the parse runSearch already resolved — no second AI call, no risk of the two disagreeing
   ]);
   response.realSquad = realSquad;
-  mergeRealSquadIntoResults(response);
+  await mergeRealSquadIntoResults(response);
   const squadOk = !!realSquad;
 
   const sourcesOk = [statsbombOk, formOk, standingsOk, teamStatsOk, squadOk].filter(Boolean).length;
@@ -2088,17 +2271,33 @@ function liveSourceLabel(sourcesOk, sourcesTotal){
    set so removing/adding a filter doesn't lose real club form/standings/team-stats data. */
 async function reRunWithParsed(parsed, wasLive){
   const response = filterAndSort(parsed);
-  if(wasLive){
-    await enrichWithClubForm(response.results);
-    await enrichWithStandings(response.results);
-    await enrichWithTeamStats(response.results);
-    response.realSquad = await realSquadFromParsed(parsed);
-    mergeRealSquadIntoResults(response);
-  }
+  if(!wasLive) return response;
+
+  const enabled = {
+    openfootball: isSourceEnabled('openfootball'),
+    footballdata: isSourceEnabled('footballdata'),
+    teamstats: isSourceEnabled('teamstats'),
+    eflsquads: isSourceEnabled('eflsquads'),
+  };
+  const sourcesTotal = Object.values(enabled).filter(Boolean).length;
+
+  const [formOk, standingsOk, teamStatsOk, realSquad] = await Promise.all([
+    enabled.openfootball ? enrichWithClubForm(response.results) : Promise.resolve(false),
+    enabled.footballdata ? enrichWithStandings(response.results) : Promise.resolve(false),
+    enabled.teamstats ? enrichWithTeamStats(response.results, parsed.season) : Promise.resolve(false),
+    enabled.eflsquads ? realSquadFromParsed(parsed) : Promise.resolve(null),
+  ]);
+  response.realSquad = realSquad;
+  await mergeRealSquadIntoResults(response);
+
+  response.sourcesOk = [formOk, standingsOk, teamStatsOk, !!realSquad].filter(Boolean).length;
+  response.sourcesTotal = sourcesTotal;
   return response;
 }
 
-let assistantAvailable = true; // flips false on first failure — falls back to deterministic search rather than repeatedly failing
+let assistantUnavailableUntil = 0; // timestamp — 0 means available now. A momentary drop shouldn't disable the assistant for the whole session, which is exactly the "patchy pitch-side signal" scenario this app is built around.
+const ASSISTANT_RETRY_COOLDOWN_MS = 15000; // after a failure, wait this long before trying again — avoids hammering a genuinely-down proxy on every keystroke, while still recovering fast once signal's back
+function assistantAvailable(){ return Date.now() >= assistantUnavailableUntil; }
 
 function sendMessage(){
   const text = input.value.trim().slice(0, 2000); // raised from 300 — conversational messages are legitimately longer than search queries
@@ -2124,6 +2323,20 @@ function sendMessage(){
   turnEl.appendChild(typing);
   scrollToBottom();
 
+  // Story #23, now protecting the PRIMARY conversation too, not just the fallback path —
+  // previously this only ran inside runDeterministicFallback, so a confidently wrong answer
+  // in normal conversation was only ever stopped by a soft prompt instruction, not a hard rule.
+  const outOfScope = detectOutOfScope(text);
+  if(outOfScope){
+    setTimeout(()=>{
+      typing.remove();
+      turnEl.appendChild(buildOutOfScopeBlock(outOfScope));
+      scrollToBottom();
+      persistTurn(text, {parsed:{filters:[]}, results:[], totalMatches:0, outOfScope}, threadId, actingUsername, false);
+    }, 400);
+    return;
+  }
+
   if(!isOnline){
     typing.remove();
     const queuedNote = document.createElement('div');
@@ -2135,7 +2348,7 @@ function sendMessage(){
     return;
   }
 
-  if(assistantAvailable){
+  if(assistantAvailable()){
     runAssistantMessage(text, turnEl, typing, threadId, actingUsername);
     return;
   }
@@ -2163,10 +2376,9 @@ async function runAssistantMessage(text, turnEl, typing, threadId, actingUsernam
   block.appendChild(toolNoteEl);
 
   let started = false;
-  lastAssistantSearchResponse = null;
 
   try{
-    const finalText = await runAssistantTurn(
+    const { text: finalText, searchResponse } = await runAssistantTurn(
       history,
       (chunk)=>{
         if(!started){ typing.remove(); turnEl.appendChild(block); started = true; }
@@ -2188,17 +2400,17 @@ async function runAssistantMessage(text, turnEl, typing, threadId, actingUsernam
     // If the assistant actually searched, show the real result cards under its prose — the
     // numbers come straight from the database, not from the model retelling them.
     let persistedResponse = { assistantText: proseEl.textContent, parsed:{filters:[]}, results:[], totalMatches:0 };
-    if(lastAssistantSearchResponse){
-      const resultsBlock = buildAssistantBlock(lastAssistantSearchResponse, true, liveMode ? 'Live data' : undefined);
+    if(searchResponse){
+      const resultsBlock = buildAssistantBlock(searchResponse, true, liveMode ? 'Live data' : undefined);
       resultsBlock.querySelector('.assistant-tag')?.remove(); // one Recon tag per turn, not two
       block.appendChild(resultsBlock);
-      threadFilterContext[threadId] = lastAssistantSearchResponse.parsed;
-      persistedResponse = { ...lastAssistantSearchResponse, assistantText: proseEl.textContent };
+      threadFilterContext[threadId] = searchResponse.parsed;
+      persistedResponse = { ...searchResponse, assistantText: proseEl.textContent };
     }
     scrollToBottom();
     persistTurn(text, persistedResponse, threadId, actingUsername, !!liveMode);
   } catch(e){
-    assistantAvailable = false; // don't keep retrying a proxy that isn't reachable
+    assistantUnavailableUntil = Date.now() + ASSISTANT_RETRY_COOLDOWN_MS; // temporary — retries again automatically once signal's likely back
     block.remove();
     const note = document.createElement('div');
     note.className = 'fallback-note';
@@ -2227,17 +2439,8 @@ function buildAssistantHistory(threadId){
 }
 
 function runDeterministicFallback(text, turnEl, typing, threadId, actingUsername){
-  const outOfScope = detectOutOfScope(text);
-  if(outOfScope){
-    setTimeout(()=>{
-      typing.remove();
-      turnEl.appendChild(buildOutOfScopeBlock(outOfScope));
-      scrollToBottom();
-      persistTurn(text, {parsed:{filters:[]}, results:[], totalMatches:0, outOfScope}, threadId, actingUsername, false);
-    }, 400);
-    return;
-  }
-
+  // Out-of-scope check now happens once, in sendMessage, before either path is chosen —
+  // no need to duplicate it here.
   if(looksLikeModification(text, threadId)){
     const merged = mergeWithContext(text, threadFilterContext[threadId]);
     (async ()=>{
@@ -2537,16 +2740,42 @@ function ensureThreadId(seedQuery){
   return currentThreadId;
 }
 
-function persistTurn(query, response, threadId, actingUsername, wasLive){
+async function persistTurn(query, response, threadId, actingUsername, wasLive){
   const now = Date.now();
-  let th = threads.find(t=>t.id===threadId);
+  const turnRecord = { query, response, ts: now, wasLive: !!wasLive };
+
+  // STAB-01: if a login/logout happened while this response was in flight, the acting user is
+  // no longer the one currently loaded into the live `threads` global — that global now belongs
+  // to whoever's ACTUALLY logged in. Writing into it here would silently merge one person's
+  // search into another person's saved history. Detected and fully isolated below.
+  const isStillSameUser = actingUsername && currentUser && actingUsername === currentUser.username;
+
+  if(isStillSameUser || !actingUsername){
+    let th = threads.find(t=>t.id===threadId);
+    if(!th){
+      th = { id: threadId, title: query.length>42 ? query.slice(0,42)+'…' : query, createdAt: now, updatedAt: now, turns: [] };
+      threads.push(th);
+    }
+    th.turns.push(turnRecord);
+    th.updatedAt = now;
+    await saveThreads(actingUsername);
+    renderDrawer();
+    return;
+  }
+
+  // A different user is now live — load, merge, and save the ORIGINAL acting user's own thread
+  // history directly from storage, completely independent of whatever the live global holds.
+  let raw, otherThreads;
+  try{ raw = await kvGet(threadsKey(actingUsername)); otherThreads = raw ? JSON.parse(raw) : []; }
+  catch(e){ otherThreads = []; }
+  let th = otherThreads.find(t=>t.id===threadId);
   if(!th){
     th = { id: threadId, title: query.length>42 ? query.slice(0,42)+'…' : query, createdAt: now, updatedAt: now, turns: [] };
-    threads.push(th);
+    otherThreads.push(th);
   }
-  th.turns.push({ query, response, ts: now, wasLive: !!wasLive });
+  th.turns.push(turnRecord);
   th.updatedAt = now;
-  saveThreads(actingUsername);
+  await kvSet(threadsKey(actingUsername), JSON.stringify(otherThreads)); // writes ONLY to that user's key — the live `threads` global (the new current user's data) is never read or touched
   renderDrawer();
 }
 
@@ -2555,8 +2784,8 @@ const screen = document.getElementById('screen');
 const profileScroll = document.getElementById('profile-scroll');
 
 function openProfile(p){
-  const LABELS = {aerial:"Aerial duels won/90",passAcc:"Pass accuracy",interceptions:"Interceptions/90",tackles:"Tackles/90",xg:"xG",goals:"Goals",keyPasses:"Key passes/90",dribbles:"Dribbles/90",turnovers:"Turnovers/90",shots:"Shots",passAtt:"Passes attempted",passCmp:"Passes completed",appearances:"Appearances (season)",minutes:"Minutes played",rating:"Average rating",assists:"Assists (season)",yellowCards:"Yellow cards",redCards:"Red cards",duelsWon:"Duels won/90"};
-  const FIELD_ORDER = ["appearances","minutes","rating","goals","assists","aerial","duelsWon","passAcc","tackles","interceptions","keyPasses","dribbles","turnovers","xg","shots","passAtt","passCmp","yellowCards","redCards"];
+  const LABELS = {aerial:"Aerial duels won/90",passAcc:"Pass accuracy",interceptions:"Interceptions/90",tackles:"Tackles/90",xg:"xG",goals:"Goals",keyPasses:"Key passes/90",dribbles:"Dribbles/90",turnovers:"Turnovers/90",shots:"Shots",passAtt:"Passes attempted",passCmp:"Passes completed",appearances:"Appearances (season)",minutes:"Minutes played",rating:"Average rating",assists:"Assists (season)",yellowCards:"Yellow cards",redCards:"Red cards",duelsWon:"Duels won/90",shotConversionRate:"Shot conversion rate",shotAccuracy:"Shot accuracy",disciplineRatio:"Fouls per defensive action"};
+  const FIELD_ORDER = ["appearances","minutes","rating","goals","assists","aerial","duelsWon","passAcc","tackles","interceptions","keyPasses","dribbles","turnovers","xg","shots","shotConversionRate","shotAccuracy","disciplineRatio","passAtt","passCmp","yellowCards","redCards"];
   const entries = Object.entries(p.s)
     .filter(([k])=>LABELS[k])
     .sort((a,b)=> FIELD_ORDER.indexOf(a[0]) - FIELD_ORDER.indexOf(b[0]))
@@ -2608,7 +2837,7 @@ function openProfile(p){
   renderPlayerReportsSection(p);
   const rowsWrap = document.getElementById('stat-rows');
   entries.forEach(([key,val])=>{
-    const maxes = {passAcc:100, aerial:7, xg:1, goals:1, tackles:4, interceptions:3, keyPasses:3, dribbles:4, turnovers:2.5, shots:8, passAtt:100, passCmp:90, appearances:40, minutes:3400, rating:10, assists:10, yellowCards:10, redCards:2, duelsWon:7};
+    const maxes = {passAcc:100, aerial:7, xg:1, goals:1, tackles:4, interceptions:3, keyPasses:3, dribbles:4, turnovers:2.5, shots:8, passAtt:100, passCmp:90, appearances:40, minutes:3400, rating:10, assists:10, yellowCards:10, redCards:2, duelsWon:7, shotConversionRate:0.5, shotAccuracy:1, disciplineRatio:1};
     const pct = Math.min(100, Math.round((val / (maxes[key]||4))*100));
     const row = document.createElement('div');
     row.className = 'stat-row';
@@ -2627,11 +2856,26 @@ function renderPlayerReportsSection(p){
   if(!wrap) return;
   const existing = reports.filter(r => r.playerName === p.name && r.playerClub === p.club && r.status === 'submitted');
   if(existing.length === 0){ wrap.innerHTML = ''; return; }
-  const rows = existing.slice().sort((a,b)=> b.submittedAt - a.submittedAt).map(r=>{
-    const statusTag = r.reviewStatus ? ` · <span style="color:var(--sage);">${r.reviewStatus}</span>` : ' · <span style="color:var(--text-dim);">pending review</span>';
-    return `<div class="toggle-row"><div><div class="tr-label">${r.recommendation || '(no recommendation set)'}</div><div class="tr-sub">${r.authorDisplayName} · ${new Date(r.submittedAt).toLocaleDateString()}${statusTag}</div></div></div>`;
-  }).join('');
-  wrap.innerHTML = `<div class="section-label">Reports on this player <span style="color:var(--text-dim); text-transform:none; letter-spacing:0;">— ${existing.length}</span></div>${rows}`;
+  wrap.innerHTML = `<div class="section-label">Reports on this player <span style="color:var(--text-dim); text-transform:none; letter-spacing:0;">— ${existing.length}</span></div>`;
+  existing.slice().sort((a,b)=> b.submittedAt - a.submittedAt).forEach(r=>{
+    const row = document.createElement('div');
+    row.className = 'toggle-row';
+    const mid = document.createElement('div');
+    const label = document.createElement('div');
+    label.className = 'tr-label';
+    label.textContent = r.recommendation || '(no recommendation set)';
+    const sub = document.createElement('div');
+    sub.className = 'tr-sub';
+    sub.textContent = `${r.authorDisplayName} · ${new Date(r.submittedAt).toLocaleDateString()}`; // textContent — user-authored display name
+    const statusSpan = document.createElement('span');
+    statusSpan.style.color = r.reviewStatus ? 'var(--sage)' : 'var(--text-dim)';
+    statusSpan.textContent = ' · ' + (r.reviewStatus || 'pending review');
+    sub.appendChild(statusSpan);
+    mid.appendChild(label);
+    mid.appendChild(sub);
+    row.appendChild(mid);
+    wrap.appendChild(row);
+  });
 }
 
 function openReportForm(p){
@@ -2736,12 +2980,12 @@ async function renderReportsReview(){
       card.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
           <div>
-            <div class="tr-label">${r.recommendation}</div>
-            <div class="tr-sub">${r.authorDisplayName} · ${new Date(r.submittedAt).toLocaleString()}</div>
+            <div class="tr-label"></div>
+            <div class="tr-sub"></div>
           </div>
-          <span style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:${r.reviewStatus ? 'var(--sage)' : 'var(--text-dim)'};">${r.reviewStatus || 'Pending'}</span>
+          <span class="review-status-badge" style="font-size:10px; text-transform:uppercase; letter-spacing:.05em;"></span>
         </div>
-        <div style="font-size:12.5px; color:var(--text); line-height:1.5;">${r.notes ? r.notes.replace(/</g,'&lt;') : ''}</div>
+        <div class="review-notes" style="font-size:12.5px; color:var(--text); line-height:1.5;"></div>
         <div style="font-size:10.5px; color:var(--text-dim);">Snapshot at time of writing: ${snap.pos||''}${snap.age!=null?', age '+snap.age:''}${snap.value!=null?', £'+snap.value+'M':''}${snap.season?', '+snap.season+' season':''}</div>
         <div class="review-comment-area" style="display:${r.reviewComment ? 'block' : 'none'};"></div>
         <div style="display:flex; gap:6px; flex-wrap:wrap;">
@@ -2750,8 +2994,20 @@ async function renderReportsReview(){
           <button class="btn-ghost-sm review-comment-btn">Add comment</button>
         </div>
       `;
+      // textContent throughout — r.notes, r.reviewComment, and r.authorDisplayName are all
+      // user-authored text, same DEF-02 risk class as the invite-name bug, just missed by that
+      // fix since this feature didn't exist yet at the time.
+      card.querySelector('.tr-label').textContent = r.recommendation;
+      card.querySelector('.tr-sub').textContent = `${r.authorDisplayName} · ${new Date(r.submittedAt).toLocaleString()}`;
+      const badge = card.querySelector('.review-status-badge');
+      badge.textContent = r.reviewStatus || 'Pending';
+      badge.style.color = r.reviewStatus ? 'var(--sage)' : 'var(--text-dim)';
+      card.querySelector('.review-notes').textContent = r.notes || '';
       if(r.reviewComment){
-        card.querySelector('.review-comment-area').innerHTML = `<div style="font-size:11.5px; color:var(--text-muted); border-left:2px solid var(--line); padding-left:8px;">${r.reviewComment.replace(/</g,'&lt;')}</div>`;
+        const commentDiv = document.createElement('div');
+        commentDiv.style.cssText = 'font-size:11.5px; color:var(--text-muted); border-left:2px solid var(--line); padding-left:8px;';
+        commentDiv.textContent = r.reviewComment;
+        card.querySelector('.review-comment-area').appendChild(commentDiv);
       }
       card.querySelectorAll('.review-mark-btn').forEach(btn=>{
         btn.onclick = async ()=>{
@@ -2857,6 +3113,21 @@ document.getElementById('test-sources-btn').onclick = async function(){
       if(data.type === 'error') throw new Error('Anthropic API error: ' + (data.error?.message || JSON.stringify(data)) + ' — check ANTHROPIC_API_KEY is correct and has billing enabled.');
       return { ok: true };
     }},
+    { name: 'SportMonks proxy (Scottish/Danish data)', run: async ()=>{
+      // Deliberately ID-independent — /leagues lists everything your token can see, so this
+      // proves the Worker route + api_token work without needing to already know a specific
+      // league's numeric ID (which isn't hardcoded anywhere in this app, to avoid risking a
+      // wrong guessed number silently returning nothing).
+      const res = await fetch(`${SPORTMONKS_PROXY_BASE}/leagues`);
+      if(!res.ok){
+        let detail = '';
+        try{ detail = JSON.stringify(await res.json()); }catch(e){}
+        throw new Error(`Worker responded HTTP ${res.status}. ${detail || '(no body) — check the Worker is deployed and SPORTMONKS_API_KEY is set as a secret.'}`);
+      }
+      const data = await res.json();
+      if(data.message && !data.data) throw new Error('SportMonks API error: ' + data.message + ' — check SPORTMONKS_API_KEY is correct.');
+      return { ok: true };
+    }},
   ];
 
   for(const t of tests){
@@ -2929,7 +3200,7 @@ function resolveQueuedTurn(q){
   };
 
   // Signal's back — give the queued message the same conversational treatment a live one gets.
-  if(assistantAvailable){
+  if(assistantAvailable()){
     const typing = document.createElement('div');
     typing.className = 'typing';
     typing.innerHTML = '<i></i><i></i><i></i>';
@@ -2976,7 +3247,8 @@ function accountsKeyFor(club){ return "recon-accounts-v1:" + slugifyClub(club); 
 function invitesKeyFor(club){ return "recon-invites-v1:" + slugifyClub(club); }
 function permissionsKeyFor(club){ return "recon-permissions-v1:" + slugifyClub(club); }
 function dataSourcesKeyFor(club){ return "recon-datasources-v1:" + slugifyClub(club); }
-function auditLogKeyFor(club){ return "recon-auditlog-v1:" + slugifyClub(club); }
+function auditLogPrefixFor(club){ return "recon-auditlog-v1:" + slugifyClub(club) + ":"; }
+function auditEventKeyFor(club, eventId){ return auditLogPrefixFor(club) + eventId; }
 function retentionKeyFor(club){ return "recon-retention-v1:" + slugifyClub(club); }
 
 /* ---------------- Story #21: conversation retention & GDPR erasure ---------------- */
@@ -2995,40 +3267,78 @@ async function saveRetention(){
 }
 
 // GDPR erasure: deletes a user's entire thread-history key (not just hides it), strips their
-// authored reports, and removes their account if it still exists. Scoped to the calling
-// Admin's own club by construction — erasure only ever happens from within the Team screen,
-// which already only ever operates on currentUser.club's own data.
+// authored reports, removes their account, AND (STAB-05 fix) scrubs their identifying info out
+// of every audit entry and out of any report they reviewed but didn't author — the earlier
+// version left both of those carrying the erased user's real name/email forever.
 async function eraseUserData(username){
   await kvDelete(threadsKey(username));
+
   reports = reports.filter(r => r.authorUsername !== username);
+  reports.forEach(r=>{
+    if(r.reviewedBy === username){ r.reviewedBy = '(erased user)'; } // STAB-05: reviewing someone else's report still left a real identity behind
+  });
   await saveReports();
+
   if(accounts[username]){ delete accounts[username]; await saveAccounts(); }
-  await logAuditEvent(currentUser.club, 'data_erasure', { by: currentUser.displayName, username });
+
+  // STAB-05: scrub the username out of every audit entry that mentions it — the EVENT itself
+  // (type, timestamp) is kept for audit-trail integrity, only the identifying value is redacted.
+  const club = currentUser.club;
+  const keys = await kvList(auditLogPrefixFor(club));
+  await Promise.all(keys.map(async k=>{
+    try{
+      const raw = await kvGet(k);
+      if(!raw) return;
+      const entry = JSON.parse(raw);
+      let changed = false;
+      Object.keys(entry.detail || {}).forEach(field=>{
+        if(entry.detail[field] === username){ entry.detail[field] = '(erased user)'; changed = true; }
+      });
+      if(changed) await kvSet(k, JSON.stringify(entry));
+    } catch(e){ /* skip a malformed entry rather than fail the whole erasure */ }
+  }));
+  await loadAuditLogForClub(club); // refresh the in-memory copy so the Team screen reflects the scrub immediately
+
+  await logAuditEvent(club, 'data_erasure', { by: currentUser.displayName, username });
 }
 
 /* ---------------- Story #15: audit log ---------------- */
 /* Every login, logout, failed attempt, lockout, role change, revoke, invite, and licence
    expiry event lives in ONE log per club — same audit trail, not a separate disconnected
-   system, per the story's explicit requirement. */
+   system, per the story's explicit requirement.
+
+   SCALE-02/04 fix: each event now gets its OWN storage key instead of all events sharing one
+   array. Writing an event is now a pure append (one small new key) — no read-modify-write of
+   an up-to-500-entry blob, and no race between two people's events overwriting each other. */
 let auditLog = []; // ONLY currentUser's club, once loaded
 const AUDIT_MAX_ENTRIES = 500; // keep the log bounded rather than growing forever
 
 async function loadAuditLogForClub(club){
-  try{ const raw = await kvGet(auditLogKeyFor(club)); auditLog = raw ? JSON.parse(raw) : []; }
-  catch(e){ auditLog = []; }
+  try{
+    const keys = await kvList(auditLogPrefixFor(club));
+    const loaded = await Promise.all(keys.map(async k=>{
+      try{ const raw = await kvGet(k); return raw ? JSON.parse(raw) : null; } catch(e){ return null; }
+    }));
+    auditLog = loaded.filter(Boolean).sort((a,b)=>a.ts-b.ts);
+    if(auditLog.length > AUDIT_MAX_ENTRIES){
+      const toPrune = auditLog.slice(0, auditLog.length - AUDIT_MAX_ENTRIES);
+      await Promise.all(toPrune.map(e=> kvDelete(auditEventKeyFor(club, e.id))));
+      auditLog = auditLog.slice(auditLog.length - AUDIT_MAX_ENTRIES);
+    }
+  } catch(e){ auditLog = []; }
 }
 
 // Takes an explicit club since failed-login events happen BEFORE currentUser is set — there's
 // no "current club" yet at that point, only whichever club the attempted username resolved to.
 async function logAuditEvent(club, type, detail){
   if(!club) return; // can't attribute an event to a club we can't identify (e.g. a totally unknown email) — nothing safe to write
-  let log;
-  try{ const raw = await kvGet(auditLogKeyFor(club)); log = raw ? JSON.parse(raw) : []; }
-  catch(e){ log = []; }
-  log.push({ type, detail, ts: Date.now() });
-  if(log.length > AUDIT_MAX_ENTRIES) log = log.slice(log.length - AUDIT_MAX_ENTRIES);
-  if(currentUser && currentUser.club === club) auditLog = log; // keep the in-memory copy in sync if it's the active club
-  await kvSet(auditLogKeyFor(club), JSON.stringify(log));
+  const eventId = Date.now() + '-' + Math.random().toString(36).slice(2,8);
+  const entry = { id: eventId, type, detail, ts: Date.now() };
+  await kvSet(auditEventKeyFor(club, eventId), JSON.stringify(entry)); // pure append, no read of the existing log needed at all
+  if(currentUser && currentUser.club === club){
+    auditLog.push(entry);
+    auditLog.sort((a,b)=>a.ts-b.ts);
+  }
 }
 
 const AUDIT_LABELS = {
@@ -3060,6 +3370,18 @@ let reports = []; // ONLY currentUser's club, once loaded
 async function loadReportsForClub(club){
   try{ const raw = await kvGet(reportsKeyFor(club)); reports = raw ? JSON.parse(raw) : []; }
   catch(e){ reports = []; }
+
+  // SCALE-03: reports previously had no retention at all, unlike threads — same policy now
+  // applies to both, but only to SUBMITTED reports. A draft is someone's in-progress work, not
+  // stale search history, so it's never auto-deleted just because it's old.
+  if(retentionDays && reports.length){
+    const cutoff = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
+    const kept = reports.filter(r => r.status === 'draft' || (r.submittedAt && r.submittedAt >= cutoff));
+    if(kept.length !== reports.length){
+      reports = kept;
+      await kvSet(reportsKeyFor(club), JSON.stringify(reports));
+    }
+  }
 }
 let lastSaveFailedReports = false;
 async function saveReports(){
@@ -3530,8 +3852,8 @@ async function enterApp(){
   await loadPermissionsForClub(currentUser.club);
   await loadDataSourcesForClub(currentUser.club);
   await loadAuditLogForClub(currentUser.club);
+  await loadRetentionForClub(currentUser.club); // must be before loadReportsForClub/loadThreads — both prune using this
   await loadReportsForClub(currentUser.club);
-  await loadRetentionForClub(currentUser.club); // must be before loadThreads() — that's where pruning actually applies
   markActivity();
   startSessionWatch();
   applyCurrentUserToUI();
@@ -3680,14 +4002,20 @@ document.getElementById('activate-submit').onclick = async ()=>{
   errEl.textContent = '';
 
   if(!club || !code || !pass){ errEl.textContent = 'Enter your club, invite code, and a password.'; return; }
-  const clubInvites = await loadInvitesForClub(club); // only this one club's invites ever touch this browser
+  // OTHER-01: resolve common nicknames ("West Brom" → "West Bromwich Albion") the same way the
+  // search bar already does — exact/alias matching only, deliberately not the fuzzy fallback,
+  // since a wrong guess here would activate the account into the wrong club entirely. Falls back
+  // to the raw typed value if nothing resolves, so this can only ever help, never block someone
+  // who already typed the exact official name.
+  const resolvedClub = detectClubExact(club) || club;
+  const clubInvites = await loadInvitesForClub(resolvedClub); // only this one club's invites ever touch this browser
   const invite = clubInvites[code];
   if(!invite || invite.used){ errEl.textContent = 'That invite code is invalid, already used, or the club name doesn\'t match.'; return; }
   if(invite.expiresAt && invite.expiresAt < Date.now()){ errEl.textContent = 'This invite\'s access window has already passed — ask your Admin for a new one.'; return; }
   if(pass.length < 8){ errEl.textContent = 'Password must be at least 8 characters.'; return; }
   if(pass !== pass2){ errEl.textContent = "Passwords don't match."; return; }
 
-  await loadAccountsForClub(club);
+  await loadAccountsForClub(resolvedClub);
   if(accounts[invite.email]){ errEl.textContent = 'An account already exists for this invite.'; return; }
 
   const salt = randomSaltHex();
@@ -3700,8 +4028,8 @@ document.getElementById('activate-submit').onclick = async ()=>{
   currentUser = acct; // needed before save so saveAccounts()/saveInvites() know which club store to write
   await saveAccounts();
   await saveInvites();
-  await logAuditEvent(club, 'invite_activated', { username: invite.email });
-  emailIndex[invite.email] = club;
+  await logAuditEvent(resolvedClub, 'invite_activated', { username: invite.email });
+  emailIndex[invite.email] = resolvedClub;
   await saveEmailIndex();
   await kvSet(SESSION_KEY, invite.email);
   enterApp();
@@ -3728,6 +4056,7 @@ async function signOut(reason){
   enabledSources = {};
   auditLog = [];
   currentUser = null;
+  if(sessionCheckInterval){ clearInterval(sessionCheckInterval); sessionCheckInterval = null; } // STAB-06: was left ticking every 30s at the auth gate
   closeSecondary();
   showAuthGate();
   if(reason === 'expired'){

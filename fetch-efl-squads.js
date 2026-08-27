@@ -2,16 +2,15 @@
  * fetch-efl-squads.js
  *
  * Pulls REAL current squads (names, ages, positions, nationality, photos) for
- * every Championship club across the 2022, 2023, and 2024 seasons from API-Football.
- * Run locally with
+ * every Championship club — 24 clubs — from API-Football. Run locally with
  * your own key; the key never touches a committed file.
  *
  * Usage:
  *   API_FOOTBALL_KEY=your-real-key node fetch-efl-squads.js
  *
- * Requests are spaced 6.5 seconds apart to stay below common per-minute limits.
- * Three seasons can require roughly 75 requests, depending on the number of
- * clubs returned for each season.
+ * Free tier quota: this uses ~26 requests (1 league lookup + 1 team-list call
+ * + 24 squad calls) — comfortably under the 100/day limit, with plenty of
+ * margin for a retry if something fails partway through.
  *
  * League ID is looked up by name at runtime rather than hardcoded, so this
  * keeps working even if API-Football's numbering changes.
@@ -23,21 +22,30 @@ const API_KEY = process.env.API_FOOTBALL_KEY || "PASTE_YOUR_KEY_HERE";
 const BASE = "https://v3.football.api-sports.io";
 
 const LEAGUES = ["Championship"];
-const SEASONS = [2022, 2023, 2024];
-const REQUEST_DELAY_MS = 6500;
 
 const fs = require("fs");
 const path = require("path");
 
-async function apiGet(endpoint) {
+async function apiGet(endpoint, retriesLeft = 2) {
   const res = await fetch(`${BASE}${endpoint}`, {
     headers: { "x-apisports-key": API_KEY },
   });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`${endpoint} -> ${res.status} ${res.statusText}\n${body}`);
+  let data;
+  try { data = await res.json(); } catch(e) { data = null; }
+
+  if (res.status === 429 && retriesLeft > 0) {
+    console.log(`  Rate limited — waiting 20s before retrying (${retriesLeft} retr${retriesLeft===1?'y':'ies'} left)...`);
+    await sleep(20000);
+    return apiGet(endpoint, retriesLeft - 1);
   }
-  return res.json();
+
+  if (!res.ok) {
+    throw new Error(`${endpoint} -> HTTP ${res.status} ${res.statusText}\n${JSON.stringify(data)}`);
+  }
+  if (data && data.errors && Object.keys(data.errors).length > 0) {
+    throw new Error(`${endpoint} -> API-Football returned an error: ${JSON.stringify(data.errors)}`);
+  }
+  return data;
 }
 
 function sleep(ms) {
@@ -52,12 +60,18 @@ async function findLeague(name) {
     throw new Error(`No league found for "${name}"`);
   }
   const entry = data.response[0];
-  const currentSeason =
-    entry.seasons.find((s) => s.current) || entry.seasons[entry.seasons.length - 1];
+  // Free tier only has access to 2022-2024 (confirmed by the API's own error message on any
+  // later season). The "current" flag reflects the REAL current season, which keeps advancing
+  // every year and will always be out of free-tier reach — so pick the most recent season
+  // actually within the allowed range instead of trusting "current".
+  const allowedSeasons = entry.seasons.filter((s) => s.year <= 2024);
+  const bestSeason = allowedSeasons.length > 0
+    ? allowedSeasons.reduce((a, b) => (b.year > a.year ? b : a))
+    : entry.seasons[entry.seasons.length - 1]; // shouldn't be reached given the free-tier message, but a safe fallback either way
   return {
     id: entry.league.id,
     name: entry.league.name,
-    season: currentSeason.year,
+    season: bestSeason.year,
   };
 }
 
@@ -96,36 +110,34 @@ async function main() {
     try {
       league = await findLeague(leagueName);
       callCount++;
-      await sleep(REQUEST_DELAY_MS);
+      await sleep(6500);
       console.log(`Found: ${league.name} (id ${league.id}, season ${league.season})`);
     } catch (err) {
       console.error(`Failed to find league "${leagueName}":`, err.message);
       continue;
     }
 
-    for (const season of SEASONS) {
-      let teams;
-      try {
-        teams = await getTeamsInLeague(league.id, season);
-        callCount++;
-        await sleep(REQUEST_DELAY_MS);
-        console.log(`${season}: ${teams.length} teams found.`);
-      } catch (err) {
-        console.error(`Failed to fetch teams for ${leagueName} (${season}):`, err.message);
-        continue;
-      }
+    let teams;
+    try {
+      teams = await getTeamsInLeague(league.id, league.season);
+      callCount++;
+      await sleep(6500);
+      console.log(`${teams.length} teams found.`);
+    } catch (err) {
+      console.error(`Failed to fetch teams for ${leagueName}:`, err.message);
+      continue;
+    }
 
-      for (const team of teams) {
-        try {
-          console.log(`  Fetching squad: ${team.name} (id ${team.id})...`);
-          const players = await fetchSquad(team.id);
-          callCount++;
-          await sleep(REQUEST_DELAY_MS);
-          allClubs.push({ club: team.name, teamId: team.id, league: league.name, season, players });
-          console.log(`    -> ${players.length} players (total API calls so far: ${callCount})`);
-        } catch (err) {
-          console.error(`  Failed for ${team.name} (${season}):`, err.message);
-        }
+    for (const team of teams) {
+      try {
+        console.log(`  Fetching squad: ${team.name} (id ${team.id})...`);
+        const players = await fetchSquad(team.id);
+        callCount++;
+        await sleep(6500);
+        allClubs.push({ club: team.name, teamId: team.id, league: league.name, players });
+        console.log(`    -> ${players.length} players (total API calls so far: ${callCount})`);
+      } catch (err) {
+        console.error(`  Failed for ${team.name}:`, err.message);
       }
     }
   }
