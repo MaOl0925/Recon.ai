@@ -17,6 +17,12 @@
     --bg:#0F1216; --backdrop:#14171C; --surface:#1B1F26; --surface-2:#232830;
     --line: rgba(243,244,241,0.09); --text:#F3F4F1; --text-muted:#8B92A0; --text-dim:#5C636F;
     --gold:#D4A63A; --sage:#5FA57C; --brick:#B24B42; --radius:14px;
+    --avatar-top:#2A303A; --on-gold:#171308; --scrim:rgba(0,0,0,.5);
+    --gold-soft:rgba(212,166,58,.1); --gold-tint:rgba(212,166,58,.15); --gold-edge:rgba(212,166,58,.35);
+    /* Shortlist pitch */
+    --pitch-turf:#182A1F; --pitch-stripe:#1C3024; --pitch-line:rgba(243,244,241,.16);
+    --pitch-slot:rgba(243,244,241,.5); --dot-label:rgba(15,18,22,.72);
+    --glow-gold:0 0 0 4px rgba(212,166,58,.25); --sheet:0 -12px 32px rgba(0,0,0,.45);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html, body{ height:100%; overscroll-behavior:none; }
@@ -258,6 +264,120 @@
   .page-btn:disabled{ opacity:.35; cursor:default; }
   .page-indicator{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); }
   .auth-note{ font-size:11px; color:var(--text-dim); line-height:1.6; margin-top:24px; padding-top:18px; border-top:1px solid var(--line); }
+
+  /* ---- Shortlist tab ---- */
+  .screen > .toast{ z-index:40; }
+  .toast b{ color:var(--gold); font-weight:600; }
+  .btn-ghost{ background:var(--surface-2); color:var(--text); border:1px solid var(--line); }
+  .btn-ghost[aria-pressed="true"]{ color:var(--gold); border-color:var(--gold-edge); background:var(--gold-soft); }
+  .btn-row{ display:flex; gap:8px; }
+  .btn-row > *{ flex:1; }
+  .auth-btn:disabled{ opacity:.5; cursor:default; }
+  .profile-actions .auth-btn{ padding:13px 8px; font-size:13px; gap:6px; white-space:nowrap; min-width:0; }
+
+  .tab-panel{ flex:1; min-height:0; display:flex; flex-direction:column; }
+  .tab-panel[hidden]{ display:none; }
+
+  .sl-tabs{ display:flex; border-bottom:1px solid var(--line); padding:0 16px; flex:0 0 auto; }
+  .sl-tab{ flex:1; background:none; border:none; padding:11px 0 10px; font-family:'Inter',sans-serif; font-size:12.5px; font-weight:600; color:var(--text-muted); cursor:pointer; position:relative; display:flex; align-items:center; justify-content:center; gap:7px; transition:color .2s; }
+  .sl-tab::after{ content:''; position:absolute; left:24%; right:24%; bottom:-1px; height:2px; border-radius:2px; background:var(--gold); transform:scaleX(0); transition:transform .25s cubic-bezier(.22,.9,.32,1); }
+  .sl-tab:hover{ color:var(--text); }
+  .sl-tab[aria-selected="true"]{ color:var(--text); }
+  .sl-tab[aria-selected="true"]::after{ transform:scaleX(1); }
+  .sl-tab:focus-visible{ outline:2px solid var(--gold); outline-offset:-3px; border-radius:8px; }
+  .sl-tab-count{ font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:var(--text-muted); background:var(--surface-2); border:1px solid var(--line); border-radius:20px; padding:1px 7px; line-height:15px; }
+  .sl-tab[aria-selected="true"] .sl-tab-count{ color:var(--gold); border-color:var(--gold-edge); background:var(--gold-soft); }
+
+  .sl-body{ overflow-y:auto; padding:14px 18px calc(24px + env(safe-area-inset-bottom, 0px)); }
+  .tab-panel.sl-body{ display:block; }
+  .tab-panel.sl-body[hidden]{ display:none; }
+  .sl-body::-webkit-scrollbar{ width:0; }
+  .sl-inner{ max-width:440px; margin:0 auto; }
+  .sl-toolbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .sl-toolbar .section-label{ margin:0; }
+  .sl-fill{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); white-space:nowrap; }
+  .sl-fill b{ color:var(--gold); font-weight:600; }
+  .sl-pitch-wrap{ margin-top:14px; }
+  .sl-hint{ font-size:11.5px; color:var(--text-muted); text-align:center; margin:10px 0 0; line-height:1.5; }
+
+  .sl-formations{ display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding:2px 24px 2px 2px; margin:-2px; -webkit-mask-image:linear-gradient(90deg,#000 88%,transparent); mask-image:linear-gradient(90deg,#000 88%,transparent); }
+  .sl-formations::-webkit-scrollbar{ display:none; }
+  .sl-fchip{ flex:0 0 auto; font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:500; color:var(--text-muted); background:var(--surface); border:1px solid var(--line); padding:7px 12px; border-radius:20px; cursor:pointer; transition:border-color .2s, color .2s, background .2s; }
+  .sl-fchip:hover{ border-color:var(--gold); color:var(--text); }
+  .sl-fchip[aria-checked="true"]{ color:var(--gold); border-color:var(--gold-edge); background:var(--gold-soft); }
+  .sl-fchip:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+
+  /* Pitch: portrait, our goal at the bottom, exactly 68:100 so markings never stretch */
+  .sl-pitch{ position:relative; width:100%; aspect-ratio:68/100; border-radius:12px; border:1px solid var(--line); background:repeating-linear-gradient(180deg, var(--pitch-turf) 0 10%, var(--pitch-stripe) 10% 20%); }
+  .sl-pitch-lines{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+  .sl-pitch-lines .m{ fill:none; stroke:var(--pitch-line); stroke-width:1.5; vector-effect:non-scaling-stroke; }
+  .sl-pitch-lines .s{ fill:var(--pitch-line); }
+  .sl-dot{ position:absolute; z-index:1; transform:translate(-50%,-22px); display:flex; flex-direction:column; align-items:center; gap:4px; background:none; border:none; padding:0; cursor:pointer; color:var(--text); transition:left .38s cubic-bezier(.22,.9,.32,1), top .38s cubic-bezier(.22,.9,.32,1), opacity .2s; }
+  .sl-dot-disc{ position:relative; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Big Shoulders Display',sans-serif; font-weight:700; font-size:14px; color:var(--text); background:linear-gradient(145deg,var(--avatar-top),var(--surface)); border:2px solid var(--gold); transition:box-shadow .2s, border-color .2s, color .2s, background .2s; }
+  .sl-dot-name{ max-width:88px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:'Inter',sans-serif; font-size:11px; font-weight:600; line-height:14px; color:var(--text); background:var(--dot-label); border-radius:6px; padding:2px 6px; }
+  .sl-dot-alt{ position:absolute; top:-5px; right:-7px; min-width:19px; height:19px; padding:0 4px; border-radius:10px; background:var(--gold); color:var(--on-gold); border:2px solid var(--pitch-turf); font-family:'IBM Plex Mono',monospace; font-size:9.5px; font-weight:600; display:flex; align-items:center; justify-content:center; }
+  .sl-dot.is-empty .sl-dot-disc{ background:var(--dot-label); border:1.5px dashed var(--pitch-slot); color:var(--text-muted); font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; letter-spacing:.04em; }
+  .sl-dot:hover .sl-dot-disc{ box-shadow:var(--glow-gold); }
+  .sl-dot.is-empty:hover .sl-dot-disc{ border-color:var(--gold); color:var(--gold); }
+  .sl-dot:focus-visible{ outline:none; }
+  .sl-dot:focus-visible .sl-dot-disc{ outline:2px solid var(--gold); outline-offset:3px; }
+  .sl-dot.is-selected .sl-dot-disc{ box-shadow:var(--glow-gold); }
+  .sl-dot.is-new .sl-dot-disc{ animation:slPop .5s cubic-bezier(.22,.9,.32,1); }
+  @keyframes slPop{ 0%{ transform:scale(.55); } 60%{ transform:scale(1.12); } 100%{ transform:scale(1); } }
+  .sl-pitch.is-mini{ max-width:236px; margin:0 auto; }
+  .sl-pitch.is-mini .sl-dot{ transform:translate(-50%,-50%); }
+  .sl-pitch.is-mini .sl-dot-name{ display:none; }
+  .sl-pitch.is-mini .sl-dot-disc{ width:36px; height:36px; font-family:'IBM Plex Mono',monospace; font-size:9.5px; font-weight:500; letter-spacing:.03em; color:var(--text-muted); border:1.5px solid var(--line); }
+  .sl-pitch.is-mini .sl-dot.is-empty .sl-dot-disc{ border:1.5px dashed var(--pitch-slot); }
+  .sl-pitch.is-mini .sl-dot-alt{ top:-6px; right:-8px; min-width:17px; height:17px; font-size:9px; }
+  .sl-pitch.is-mini .sl-dot.is-eligible .sl-dot-disc{ border:2px solid var(--gold); color:var(--gold); }
+  .sl-pitch.is-mini .sl-dot.is-selected .sl-dot-disc{ background:var(--gold); border-color:var(--gold); color:var(--on-gold); box-shadow:var(--glow-gold); }
+  .sl-dot.is-muted{ opacity:.32; pointer-events:none; }
+
+  .sl-add{ flex:0 0 auto; width:30px; height:30px; border-radius:50%; background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; transition:background .2s, color .2s, border-color .2s; }
+  .sl-add:hover{ border-color:var(--gold); color:var(--gold); }
+  .sl-add[aria-pressed="true"]{ background:var(--gold); border-color:var(--gold); color:var(--on-gold); }
+  .sl-add:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+  .sl-add svg{ display:block; }
+
+  .sl-row{ display:flex; align-items:center; gap:11px; padding:10px 0; width:100%; text-align:left; background:none; border:none; border-bottom:1px solid var(--line); color:var(--text); font-family:'Inter',sans-serif; cursor:pointer; }
+  .sl-row:last-child{ border-bottom:none; }
+  .sl-row:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; border-radius:8px; }
+  .sl-row-slot{ width:34px; flex:0 0 auto; font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; letter-spacing:.04em; color:var(--gold); }
+  .sl-row .avatar{ width:32px; height:32px; font-size:12px; }
+  .sl-row .pcard-name, .sl-row .pcard-sub{ display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sl-row-alts{ font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text-muted); margin-left:6px; font-weight:400; }
+  .pcard-stat .val.none{ color:var(--text-dim); font-size:11px; font-weight:400; }
+
+  .sl-bench{ display:flex; gap:8px; flex-wrap:wrap; }
+  .sl-bench-item{ display:flex; align-items:center; gap:8px; background:var(--surface); border:1px dashed var(--gold-edge); border-radius:20px; padding:4px 12px 4px 4px; font-family:'Inter',sans-serif; font-size:12px; font-weight:600; color:var(--text); cursor:pointer; }
+  .sl-bench-item .avatar{ width:26px; height:26px; font-size:10px; }
+  .sl-bench-item small{ font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text-muted); font-weight:400; }
+  .sl-empty{ text-align:center; padding:6px 10px 0; }
+  .sl-empty .mark{ font-family:'Big Shoulders Display',sans-serif; font-weight:800; font-size:26px; color:var(--text-dim); letter-spacing:.02em; }
+  .sl-empty .mark span{ color:var(--gold); }
+
+  .sl-sheet-wrap{ position:absolute; inset:0; z-index:30; pointer-events:none; }
+  .sl-sheet-scrim{ position:absolute; inset:0; background:var(--scrim); opacity:0; transition:opacity .3s; }
+  .sl-sheet{ position:absolute; left:0; right:0; bottom:0; max-height:90%; overflow-y:auto; scrollbar-width:none; background:var(--surface); border-top:1px solid var(--line); border-radius:20px 20px 0 0; box-shadow:var(--sheet); padding:8px 16px calc(18px + env(safe-area-inset-bottom, 0px)); transform:translateY(105%); transition:transform .32s cubic-bezier(.22,.9,.32,1); }
+  .sl-sheet-inner{ max-width:440px; margin:0 auto; }
+  .sl-sheet-wrap.show{ pointer-events:auto; }
+  .sl-sheet-wrap.show .sl-sheet-scrim{ opacity:1; }
+  .sl-sheet-wrap.show .sl-sheet{ transform:translateY(0); }
+  .sl-sheet-handle{ width:36px; height:4px; border-radius:2px; background:var(--surface-2); margin:0 auto 12px; }
+  .sl-sheet-head{ display:flex; align-items:center; gap:11px; padding-bottom:12px; border-bottom:1px solid var(--line); }
+  .sl-sheet-title{ font-family:'Big Shoulders Display',sans-serif; font-weight:700; font-size:16px; letter-spacing:.03em; text-transform:uppercase; color:var(--text-muted); }
+  .sl-sheet .section-label{ margin:14px 0 10px; display:flex; justify-content:space-between; }
+  .sl-sheet-note{ font-size:11.5px; color:var(--text-muted); line-height:1.5; background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:9px 12px; margin-top:12px; }
+  .sl-sheet-note b{ color:var(--text); font-weight:600; }
+  .sl-sheet .btn-row{ margin-top:14px; }
+  .sl-sheet .auth-btn{ padding:12px; font-size:13.5px; margin-top:0; }
+  .sl-sheet .pcard{ background:var(--surface-2); opacity:1; transform:none; animation:none; }
+  .sl-rank{ font-size:9px; background:var(--gold-tint); color:var(--gold); padding:2px 7px; border-radius:6px; letter-spacing:.05em; text-transform:uppercase; font-weight:600; margin-left:6px; vertical-align:1px; }
+  .sl-mini-btn{ flex:0 0 auto; width:28px; height:28px; border-radius:50%; background:var(--surface); border:1px solid var(--line); color:var(--text-muted); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; }
+  .sl-mini-btn:hover{ border-color:var(--gold); color:var(--gold); }
+  .sl-mini-btn.danger:hover{ border-color:var(--brick); color:var(--brick); }
+  .sl-mini-btn:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
 </style>
 </head>
 <body>
@@ -329,11 +449,17 @@
           </div>
         </div>
 
+        <div class="sl-tabs" role="tablist" aria-label="Recon">
+          <button type="button" class="sl-tab" role="tab" id="tab-scout" data-tab="scout" aria-selected="true" aria-controls="panel-scout">Scout</button>
+          <button type="button" class="sl-tab" role="tab" id="tab-shortlist" data-tab="shortlist" aria-selected="false" aria-controls="panel-shortlist">Shortlist <span class="sl-tab-count" id="shortlist-count">0/11</span></button>
+        </div>
+
         <div class="offline-banner" id="offline-banner">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
           <span>Offline — showing cached data. New searches and reports will run once you're back online.</span>
         </div>
 
+        <div class="tab-panel" id="panel-scout" role="tabpanel" aria-labelledby="tab-scout">
         <div class="chat-scroll" id="chat-scroll">
           <div class="empty-state" id="empty-state">
             <div class="mark">RE<span>CON</span></div>
@@ -352,6 +478,19 @@
             <input id="query-input" type="text" placeholder="Message Recon…" autocomplete="off" maxlength="2000">
             <div class="icon-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/></svg></div>
             <button class="send-btn" id="send-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          </div>
+        </div>
+        </div>
+
+        <div class="tab-panel sl-body" id="panel-shortlist" role="tabpanel" aria-labelledby="tab-shortlist" hidden>
+          <div class="sl-inner">
+            <div class="sl-toolbar"><div class="section-label">Formation</div><div class="sl-fill" id="shortlist-fill"></div></div>
+            <div id="shortlist-formations"></div>
+            <div class="sl-pitch-wrap"><div id="shortlist-pitch"></div></div>
+            <p class="sl-hint">Tap a dot to see its candidates or fill it from your searches.</p>
+            <div id="shortlist-unplaced"></div>
+            <div class="section-label">Shortlisted</div>
+            <div id="shortlist-list"></div>
           </div>
         </div>
 
@@ -2681,8 +2820,11 @@ function buildAssistantBlock(response, animate, sourceLabel){
             <div class="pcard-name">${p.name}</div>
             <div class="pcard-sub"><span class="real-badge" style="margin-right:6px;">Real</span>${p.pos} · ${p.club}${p.age?' · '+p.age:''}</div>
           </div>
-          <div class="pcard-stat"><div class="val" style="color:var(--text-dim); font-size:11px;">No stats</div></div>`;
-        // no onclick — real-squad entries are identity-only, there's no profile data to show
+          <div class="pcard-stat"><div class="val" style="color:var(--text-dim); font-size:11px;">No stats</div></div>
+          ${shortlistButtonHtml(p)}`;
+        // no onclick — real-squad entries are identity-only, there's no profile data to show.
+        // They can still be shortlisted, and they're the only source of goalkeepers.
+        wireShortlistButton(card.querySelector('.sl-add'), p);
         list.appendChild(card);
         return;
       }
@@ -2695,7 +2837,9 @@ function buildAssistantBlock(response, animate, sourceLabel){
           <div class="pcard-name">${p.name}</div>
           <div class="pcard-sub">${p.pos} · ${p.club}${p.age?' · '+p.age:''}${(p.gbe && showGbe) ? ' <span class="gbe-dot"></span>GBE' : ''}${formHtml}</div>
         </div>
-        <div class="pcard-stat">${showValueStat ? `<div class="val">${p.statVal}</div><div class="lab">${p.statLabel}</div>` : `<div class="val" style="color:var(--text-dim); font-size:11px;">Restricted</div>`}</div>`;
+        <div class="pcard-stat">${showValueStat ? `<div class="val">${p.statVal}</div><div class="lab">${p.statLabel}</div>` : `<div class="val" style="color:var(--text-dim); font-size:11px;">Restricted</div>`}</div>
+        ${shortlistButtonHtml(p)}`;
+      wireShortlistButton(card.querySelector('.sl-add'), p);
       card.onclick = ()=> openProfile(p);
       list.appendChild(card);
     });
@@ -2708,6 +2852,7 @@ function buildAssistantBlock(response, animate, sourceLabel){
       ? `Top ${shown} of ${total} matches`
       : `${total} matches`;
     const all = sortedResults(currentSortMode);
+    shortlistPool = all; // the Shortlist offers these when a scout fills a slot
     const totalPages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
     currentPage = Math.min(currentPage, totalPages);
     const start = (currentPage-1)*PAGE_SIZE;
@@ -2823,7 +2968,10 @@ function openProfile(p){
       <div class="avatar-lg">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
       <div><div class="profile-name">${p.name}</div><div class="profile-sub">${p.pos}${p.age?' · Age '+p.age:''} · ${p.club}</div><div class="profile-value">${valueLine}</div></div>
     </div>
-    <button class="auth-btn" id="write-report-btn" style="margin-bottom:14px;">Write report</button>
+    <div class="btn-row profile-actions" style="margin:14px 0;">
+      <button class="auth-btn" id="write-report-btn" style="margin-top:0;">Write report</button>
+      <button type="button" class="auth-btn btn-ghost" id="profile-shortlist-btn" style="margin-top:0;"></button>
+    </div>
     <div id="player-reports-section"></div>
     <div class="section-label">Eligibility</div>
     ${eligibilityHtml}
@@ -2834,6 +2982,7 @@ function openProfile(p){
     <div id="stat-rows"></div>
   `;
   document.getElementById('write-report-btn').onclick = ()=> openReportForm(p);
+  paintProfileShortlistBtn(document.getElementById('profile-shortlist-btn'), p);
   renderPlayerReportsSection(p);
   const rowsWrap = document.getElementById('stat-rows');
   entries.forEach(([key,val])=>{
@@ -3858,7 +4007,9 @@ async function enterApp(){
   startSessionWatch();
   applyCurrentUserToUI();
   resetChatToEmpty();
+  setTab('scout');
   await loadThreads();
+  await loadShortlist();
   setConnState(isOnline);
 }
 function showAuthGate(){
@@ -4055,6 +4206,11 @@ async function signOut(reason){
   reports = [];
   enabledSources = {};
   auditLog = [];
+  shortlist = slCreate(); // the next person to sign in on this device loads their own
+  shortlistPool = [];
+  screen.querySelectorAll('.sl-sheet-wrap').forEach(n=> n.remove());
+  setTab('scout');
+  renderShortlist();
   currentUser = null;
   if(sessionCheckInterval){ clearInterval(sessionCheckInterval); sessionCheckInterval = null; } // STAB-06: was left ticking every 30s at the auth gate
   closeSecondary();
@@ -4090,6 +4246,421 @@ async function bootAuth(){
     }
   }
   showAuthGate();
+}
+
+/* ---------------- Shortlist tab ---------------- */
+/* A pitch with 11 slots: the GK is fixed, the formation places the other 10. Each slot holds a
+   first choice plus any alternates. Players are added from Scout results (the + on a card, or
+   "Add to shortlist" on the profile) and saved per user, the same way chat history is. Each
+   entry is a snapshot of the player as shown when added, so the Shortlist works offline. */
+
+// Slot: [role, x, y]. x = % from the left touchline, y = % from the opponent's goal line (our GK at the bottom).
+const SL_FORMATIONS = {
+  '4-3-3':   [['GK',50,91],['LB',13,69],['LCB',37,74],['RCB',63,74],['RB',87,69],['LCM',27,50],['CM',50,55],['RCM',73,50],['LW',15,25],['ST',50,16],['RW',85,25]],
+  '4-4-2':   [['GK',50,91],['LB',13,69],['LCB',37,74],['RCB',63,74],['RB',87,69],['LM',13,45],['LCM',37,50],['RCM',63,50],['RM',87,45],['LST',37,19],['RST',63,19]],
+  '4-2-3-1': [['GK',50,91],['LB',13,69],['LCB',37,74],['RCB',63,74],['RB',87,69],['LDM',36,57],['RDM',64,57],['LAM',15,36],['AM',50,38],['RAM',85,36],['ST',50,16]],
+  '3-5-2':   [['GK',50,91],['LWB',12,47],['LCB',26,73],['CB',50,76],['RCB',74,73],['RWB',88,47],['LCM',32,50],['DM',50,58],['RCM',68,50],['LST',37,19],['RST',63,19]],
+  '3-4-3':   [['GK',50,91],['LWB',12,49],['LCB',26,73],['CB',50,76],['RCB',74,73],['RWB',88,49],['LCM',37,52],['RCM',63,52],['LW',17,24],['ST',50,17],['RW',83,24]],
+  '5-3-2':   [['GK',50,91],['LWB',12,63],['LCB',30,74],['CB',50,76],['RCB',70,74],['RWB',88,63],['LCM',27,47],['CM',50,51],['RCM',73,47],['LST',37,19],['RST',63,19]],
+};
+const SL_FORMATION_ORDER = ['4-3-3','4-4-2','4-2-3-1','3-5-2','3-4-3','5-3-2'];
+// Which position codes each slot takes (the app's own CB/FB/CM/WG/ST, plus GK).
+const SL_ROLE_ACCEPTS = {
+  GK:['GK'],
+  LB:['FB'], RB:['FB'], LWB:['FB','WG'], RWB:['FB','WG'],
+  LCB:['CB'], CB:['CB'], RCB:['CB'],
+  DM:['CM'], LDM:['CM'], RDM:['CM'], LCM:['CM'], CM:['CM'], RCM:['CM'],
+  AM:['CM','WG'], LAM:['WG','CM'], RAM:['WG','CM'], LM:['WG','CM'], RM:['WG','CM'],
+  LW:['WG'], RW:['WG'],
+  ST:['ST'], LST:['ST'], RST:['ST'],
+};
+// Where a slot's players go when a new formation doesn't have that slot.
+const SL_FALLBACK = {
+  LST:['ST','RST'], RST:['ST','LST'], ST:['LST','RST','AM'],
+  LM:['LW','LWB','LAM','LCM'], RM:['RW','RWB','RAM','RCM'],
+  LW:['LM','LAM','LWB'], RW:['RM','RAM','RWB'],
+  LAM:['LW','LM','AM'], RAM:['RW','RM','AM'], AM:['CM','ST','DM'],
+  LWB:['LB','LM'], RWB:['RB','RM'], LB:['LWB'], RB:['RWB'],
+  CB:['LCB','RCB'], LCB:['CB','RCB'], RCB:['CB','LCB'],
+  DM:['CM','LDM','RDM','LCM','RCM'], LDM:['DM','LCM','CM'], RDM:['DM','RCM','CM'],
+  CM:['DM','AM','LCM','RCM'], LCM:['CM','LDM','DM','RCM'], RCM:['CM','RDM','DM','LCM'],
+};
+// Real-squad entries (efl-squads.json) only carry a broad bucket.
+const SL_REAL_POS = { Goalkeeper:['GK'], Defender:['CB','FB'], Midfielder:['CM','WG'], Attacker:['ST','WG'] };
+const SL_POS_NAME = { GK:'goalkeeper', CB:'centre-back', FB:'full-back', CM:'midfielder', WG:'winger', ST:'striker' };
+const SL_POS_PLURAL = { GK:'Goalkeepers', CB:'Centre-backs', FB:'Full-backs', CM:'Midfielders', WG:'Wingers', ST:'Strikers' };
+
+const SL_ICON = {
+  plus: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>',
+  check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M20 6 9 17l-5-5"/></svg>',
+  up: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
+  x: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  search: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  pitch: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M4 12h16"/><circle cx="12" cy="12" r="3"/><path d="M9 2v3h6V2M9 22v-3h6v3"/></svg>',
+};
+const SL_PITCH_SVG =
+  '<svg class="sl-pitch-lines" viewBox="0 0 68 100" preserveAspectRatio="none" aria-hidden="true">' +
+    '<rect class="m" x="2.5" y="2.5" width="63" height="95" rx="1"/>' +
+    '<line class="m" x1="2.5" y1="50" x2="65.5" y2="50"/>' +
+    '<circle class="m" cx="34" cy="50" r="8.5"/><circle class="s" cx="34" cy="50" r=".7"/>' +
+    '<rect class="m" x="14" y="2.5" width="40" height="15.5"/><rect class="m" x="24.5" y="2.5" width="19" height="5.5"/>' +
+    '<circle class="s" cx="34" cy="12.5" r=".6"/><path class="m" d="M27.52 18 A8.5 8.5 0 0 0 40.48 18"/>' +
+    '<rect class="m" x="14" y="82" width="40" height="15.5"/><rect class="m" x="24.5" y="92" width="19" height="5.5"/>' +
+    '<circle class="s" cx="34" cy="87.5" r=".6"/><path class="m" d="M27.52 82 A8.5 8.5 0 0 1 40.48 82"/>' +
+  '</svg>';
+
+function slEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function slSurname(name){ const parts = String(name||'').trim().split(/\s+/); return parts[parts.length-1] || '?'; }
+function slKey(p){ return (p.name||'') + '|' + (p.club||''); }
+function slPosCodes(pos){
+  if(SL_REAL_POS[pos]) return SL_REAL_POS[pos];
+  if(pos === 'DEF') return ['CB','FB'];
+  if(/keeper/i.test(pos||'')) return ['GK'];
+  return [pos];
+}
+function slAccepts(role, pos){ const a = SL_ROLE_ACCEPTS[role] || []; return slPosCodes(pos).some(c=> a.includes(c)); }
+function slRoles(formation){ return SL_FORMATIONS[formation].map(s=>s[0]); }
+function slEligibleRoles(formation, pos){ return slRoles(formation).filter(r=> slAccepts(r, pos)); }
+function slSlotPos(role){ return (SL_ROLE_ACCEPTS[role] || ['CM'])[0]; }
+
+/* State: { formation, slots: { LCB: [first choice, alternate, …] }, unplaced: [{ from, players }] } */
+function slCreate(formation){ return { formation: formation || '4-3-3', slots: {}, unplaced: [] }; }
+function slNormalize(raw){
+  const s = slCreate(raw && SL_FORMATIONS[raw.formation] ? raw.formation : undefined);
+  if(raw && raw.slots && typeof raw.slots === 'object'){
+    for(const [role, list] of Object.entries(raw.slots)){
+      if(SL_ROLE_ACCEPTS[role] && Array.isArray(list) && list.length) s.slots[role] = list.filter(p=> p && p.name);
+    }
+  }
+  if(raw && Array.isArray(raw.unplaced)) s.unplaced = raw.unplaced.filter(g=> g && Array.isArray(g.players) && g.players.length);
+  return s;
+}
+function slWhere(key){
+  for(const [role, list] of Object.entries(shortlist.slots)) if(list.some(p=> p.key === key)) return role;
+  if(shortlist.unplaced.some(g=> g.players.some(p=> p.key === key))) return 'unplaced';
+  return null;
+}
+function slDetach(key){
+  for(const role of Object.keys(shortlist.slots)){
+    shortlist.slots[role] = shortlist.slots[role].filter(p=> p.key !== key);
+    if(!shortlist.slots[role].length) delete shortlist.slots[role];
+  }
+  shortlist.unplaced = shortlist.unplaced
+    .map(g=> ({ from: g.from, players: g.players.filter(p=> p.key !== key) }))
+    .filter(g=> g.players.length);
+}
+function slSnapshot(p){
+  let copy;
+  try{ copy = JSON.parse(JSON.stringify(p)); } catch(e){ copy = { name: p.name, club: p.club, pos: p.pos, age: p.age }; }
+  copy.key = slKey(p);
+  return copy;
+}
+// Returns 'first' when the slot was empty, else 'alternate'. Moves the player if already shortlisted.
+function slAdd(role, p){
+  const snap = slSnapshot(p);
+  slDetach(snap.key);
+  const list = shortlist.slots[role] || (shortlist.slots[role] = []);
+  list.push(snap);
+  return list.length === 1 ? 'first' : 'alternate';
+}
+function slPromote(role, key){
+  const list = shortlist.slots[role] || [];
+  const i = list.findIndex(p=> p.key === key);
+  if(i > 0) list.unshift(list.splice(i, 1)[0]);
+}
+// Players keep their slot if it exists, else take the nearest fallback, else wait as "unplaced"
+// and come back by themselves when a later formation has room. Returns what's left unplaced.
+function slSetFormation(next){
+  if(!SL_FORMATIONS[next] || next === shortlist.formation) return [];
+  const target = slRoles(next), out = {};
+  const groups = Object.keys(shortlist.slots).map(r=> ({ from: r, players: shortlist.slots[r] })).concat(shortlist.unplaced);
+  const left = [];
+  groups.forEach(g=>{ if(target.includes(g.from) && !out[g.from]) out[g.from] = g.players; else left.push(g); });
+  const still = [];
+  left.forEach(g=>{
+    const to = (SL_FALLBACK[g.from] || []).find(r=> target.includes(r) && !out[r]);
+    if(to) out[to] = g.players; else still.push(g);
+  });
+  shortlist.formation = next; shortlist.slots = out; shortlist.unplaced = still;
+  return still;
+}
+function slFilled(){ return slRoles(shortlist.formation).filter(r=> (shortlist.slots[r] || []).length).length; }
+
+let shortlist = slCreate();
+let shortlistPool = []; // the most recently shown Scout results, offered when filling a slot
+let activeTab = 'scout';
+
+function shortlistKey(username){ return "recon-shortlist-v1:" + (username || (currentUser ? currentUser.username : "anon")); }
+async function loadShortlist(){
+  try{
+    const raw = await kvGet(shortlistKey());
+    shortlist = raw ? slNormalize(JSON.parse(raw)) : slCreate();
+  } catch(e){
+    console.error('Recon: failed to load shortlist', e);
+    shortlist = slCreate();
+  }
+  renderShortlist();
+  refreshShortlistButtons();
+}
+async function saveShortlist(){
+  const ok = await kvSet(shortlistKey(), JSON.stringify(shortlist));
+  if(!ok) showScreenToast('Couldn’t save your shortlist just now — it may not be here next time you open Recon.');
+}
+function shortlistChanged(flashRole){
+  renderShortlist(flashRole);
+  refreshShortlistButtons();
+  saveShortlist();
+}
+
+/* ---- Tabs ---- */
+function setTab(tab){
+  activeTab = tab;
+  document.querySelectorAll('.sl-tab').forEach(b=> b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'));
+  document.getElementById('panel-scout').hidden = tab !== 'scout';
+  document.getElementById('panel-shortlist').hidden = tab !== 'shortlist';
+  if(tab === 'shortlist') renderShortlist();
+}
+document.querySelectorAll('.sl-tab').forEach(b=> b.onclick = ()=> setTab(b.dataset.tab));
+
+/* ---- Toast + sheets (inside .screen, above every view) ---- */
+function showScreenToast(html){
+  let t = screen.querySelector(':scope > .toast');
+  if(!t){ t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); screen.appendChild(t); }
+  t.innerHTML = html;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=> t.classList.remove('show'), 2400);
+}
+function openSheet(html){
+  const wrap = document.createElement('div');
+  wrap.className = 'sl-sheet-wrap';
+  wrap.innerHTML = '<div class="sl-sheet-scrim"></div><div class="sl-sheet" role="dialog" aria-modal="true"><div class="sl-sheet-inner"><div class="sl-sheet-handle"></div>' + html + '</div></div>';
+  screen.appendChild(wrap);
+  requestAnimationFrame(()=> requestAnimationFrame(()=> wrap.classList.add('show')));
+  function close(){ wrap.classList.remove('show'); setTimeout(()=> wrap.remove(), 340); }
+  wrap.querySelector('.sl-sheet-scrim').onclick = close;
+  return { el: wrap.querySelector('.sl-sheet-inner'), close };
+}
+
+/* ---- Pitch ---- */
+// Builds the 11 dot buttons once, then moves them on later calls so a formation change animates.
+function renderPitch(el, o){
+  const layout = SL_FORMATIONS[shortlist.formation];
+  if(!el._sl){
+    el.classList.add('sl-pitch');
+    if(o.mini) el.classList.add('is-mini');
+    el.setAttribute('role', 'group');
+    el.innerHTML = SL_PITCH_SVG;
+    el._sl = { dots: [] };
+    for(let i=0;i<11;i++){
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'sl-dot';
+      b.addEventListener('click', ()=>{ if(el._sl.onSlot) el._sl.onSlot(b.dataset.role); });
+      el.appendChild(b); el._sl.dots.push(b);
+    }
+  }
+  el._sl.onSlot = o.onSlot;
+  el.setAttribute('aria-label', 'Shortlist pitch, ' + shortlist.formation);
+  layout.forEach(([role, x, y], i)=>{
+    const b = el._sl.dots[i], players = shortlist.slots[role] || [], first = players[0];
+    const cls = ['sl-dot', first ? 'is-filled' : 'is-empty'];
+    if(o.eligibleFor) cls.push(slAccepts(role, o.eligibleFor) ? 'is-eligible' : 'is-muted');
+    if(o.selected === role) cls.push('is-selected');
+    if(o.flash === role) cls.push('is-new');
+    b.className = cls.join(' ');
+    b.dataset.role = role;
+    b.style.left = x + '%';
+    b.style.top = y + '%';
+    const alts = players.length - 1;
+    const altHtml = alts > 0 ? `<span class="sl-dot-alt">+${alts}</span>` : '';
+    const discText = (o.mini || !first) ? role : initials(first.name);
+    b.innerHTML = `<span class="sl-dot-disc">${slEsc(discText)}${altHtml}</span>` + (first && !o.mini ? `<span class="sl-dot-name">${slEsc(slSurname(first.name))}</span>` : '');
+    b.setAttribute('aria-label', role + ': ' + (first ? first.name + (alts > 0 ? `, plus ${alts} alternate${alts>1?'s':''}` : '') : 'empty'));
+    if(o.mini) b.setAttribute('aria-pressed', o.selected === role ? 'true' : 'false'); else b.removeAttribute('aria-pressed');
+  });
+  if(o.flash) setTimeout(()=> el.querySelectorAll('.is-new').forEach(n=> n.classList.remove('is-new')), 600);
+}
+
+function slStatHtml(p){
+  if(p.isRealNoStats || p.statVal == null || p.statVal === '—') return '<div class="val none">No stats</div>';
+  if(p.statLabel === 'VALUE' && !canSee('value')) return '<div class="val none">Restricted</div>';
+  return `<div class="val">${slEsc(p.statVal)}</div><div class="lab">${slEsc(p.statLabel)}</div>`;
+}
+function slSub(p){ return `${slEsc(p.pos)} · ${slEsc(p.club)}${p.age ? ' · ' + slEsc(p.age) : ''}`; }
+
+/* ---- The Shortlist tab ---- */
+function renderShortlist(flashRole){
+  document.getElementById('shortlist-count').textContent = slFilled() + '/11';
+  if(activeTab !== 'shortlist' && !flashRole) return; // the rest only matters when visible
+  document.getElementById('shortlist-fill').innerHTML = `<b>${slFilled()}</b> of 11 filled`;
+
+  const picker = document.getElementById('shortlist-formations');
+  picker.className = 'sl-formations';
+  picker.setAttribute('role', 'radiogroup');
+  picker.setAttribute('aria-label', 'Formation');
+  picker.innerHTML = SL_FORMATION_ORDER.map(f=> `<button type="button" class="sl-fchip" role="radio" aria-checked="${f === shortlist.formation}" data-f="${f}">${f}</button>`).join('');
+  picker.querySelectorAll('.sl-fchip').forEach(b=> b.onclick = ()=>{
+    const f = b.dataset.f;
+    const left = slSetFormation(f);
+    shortlistChanged();
+    const n = left.reduce((a, g)=> a + g.players.length, 0);
+    if(n) showScreenToast(`${n} player${n>1?'s':''} don’t fit ${f} · waiting below`);
+  });
+
+  renderPitch(document.getElementById('shortlist-pitch'), { flash: flashRole, onSlot: openSlotSheet });
+
+  const up = document.getElementById('shortlist-unplaced');
+  up.innerHTML = shortlist.unplaced.length
+    ? `<div class="section-label">Not in ${slEsc(shortlist.formation)}</div><div class="sl-bench">` +
+        shortlist.unplaced.map(g=> g.players.map(p=>
+          `<button type="button" class="sl-bench-item" data-key="${slEsc(p.key)}"><span class="avatar">${slEsc(initials(p.name))}</span>${slEsc(slSurname(p.name))} <small>was ${slEsc(g.from)}</small></button>`
+        ).join('')).join('') + '</div>'
+    : '';
+  up.querySelectorAll('.sl-bench-item').forEach(b=> b.onclick = ()=>{
+    let player = null;
+    shortlist.unplaced.forEach(g=> g.players.forEach(p=>{ if(p.key === b.dataset.key) player = p; }));
+    if(player) openAddSheet(player);
+  });
+
+  const list = document.getElementById('shortlist-list');
+  const rows = slRoles(shortlist.formation).filter(r=> (shortlist.slots[r] || []).length);
+  list.innerHTML = rows.length ? rows.map(r=>{
+    const ps = shortlist.slots[r], p = ps[0];
+    return `<button type="button" class="sl-row" data-role="${r}"><span class="sl-row-slot">${r}</span><span class="avatar">${slEsc(initials(p.name))}</span>` +
+      `<span class="pcard-mid"><span class="pcard-name">${slEsc(p.name)}${ps.length > 1 ? `<span class="sl-row-alts">+${ps.length-1}</span>` : ''}</span><span class="pcard-sub">${slEsc(p.club)}${p.age ? ' · ' + slEsc(p.age) : ''}</span></span>` +
+      `<span class="pcard-stat">${slStatHtml(p)}</span></button>`;
+  }).join('') : '<div class="sl-empty"><div class="mark">RE<span>CON</span></div><p class="sl-hint">Nothing shortlisted yet. Tap + on any player in a Scout result.</p></div>';
+  list.querySelectorAll('.sl-row').forEach(b=> b.onclick = ()=> openSlotSheet(b.dataset.role));
+}
+
+/* ---- Add sheet: choose a slot for a player ---- */
+function openAddSheet(p, onDone){
+  const options = slEligibleRoles(shortlist.formation, p.pos);
+  const current = slWhere(slKey(p));
+  let pick = (current && current !== 'unplaced' && options.includes(current)) ? current
+    : (options.find(r=> !(shortlist.slots[r] || []).length) || options[0] || null);
+  const s = openSheet(
+    `<div class="sl-sheet-head"><div class="avatar">${slEsc(initials(p.name))}</div><div class="pcard-mid"><div class="pcard-name">${slEsc(p.name)}</div><div class="pcard-sub">${slSub(p)}</div></div></div>` +
+    `<div class="section-label"><span>Choose a slot</span><span>${slEsc(shortlist.formation)}</span></div>` +
+    '<div class="sl-mini"></div><div class="sl-sheet-note" aria-live="polite"></div>' +
+    '<div class="btn-row"><button type="button" class="auth-btn btn-ghost" data-act="cancel">Cancel</button><button type="button" class="auth-btn" data-act="add"></button></div>');
+  const mini = s.el.querySelector('.sl-mini'), note = s.el.querySelector('.sl-sheet-note'), go = s.el.querySelector('[data-act="add"]');
+  const sur = slEsc(slSurname(p.name));
+  function paint(){
+    renderPitch(mini, { mini: true, eligibleFor: p.pos, selected: pick, onSlot: r=>{ pick = r; paint(); } });
+    const there = (shortlist.slots[pick] || []).filter(x=> x.key !== slKey(p));
+    if(!pick){
+      note.innerHTML = `No slot in <b>${slEsc(shortlist.formation)}</b> takes a ${slEsc(SL_POS_NAME[slPosCodes(p.pos)[0]] || p.pos || 'player with no listed position')}. Change formation on the Shortlist tab first.`;
+    } else if(there.length){
+      note.innerHTML = `<b>${slEsc(there[0].name)}</b> is first choice at ${pick}. ${sur} joins as an alternate — you can reorder on the Shortlist tab.`;
+    } else {
+      note.innerHTML = `${pick} is empty — ${sur} goes straight in as first choice.`;
+    }
+    if(current === pick) note.innerHTML = `${sur} is already shortlisted at ${pick}.`;
+    else if(current && current !== 'unplaced') note.innerHTML += ` Already shortlisted at ${current}; this moves them.`;
+    go.disabled = !pick || current === pick;
+    go.textContent = pick ? 'Add to ' + pick : 'Add';
+  }
+  paint();
+  s.el.querySelector('[data-act="cancel"]').onclick = s.close;
+  go.onclick = ()=>{
+    if(!pick) return;
+    const result = slAdd(pick, p);
+    s.close();
+    showScreenToast(`<b>${sur}</b> added at ${pick}${result === 'alternate' ? ' as an alternate' : ''}`);
+    shortlistChanged(pick);
+    if(onDone) onDone(pick);
+  };
+}
+
+/* ---- Slot sheet: a slot's candidates ---- */
+function openSlotSheet(role){
+  const s = openSheet('<div class="sl-slot-body"></div>');
+  const body = s.el.querySelector('.sl-slot-body');
+  function paint(){
+    const list = shortlist.slots[role] || [];
+    const plural = SL_POS_PLURAL[slSlotPos(role)];
+    const seen = new Set();
+    const pool = shortlistPool.filter(p=>{
+      const k = slKey(p);
+      if(seen.has(k) || !slAccepts(role, p.pos) || slWhere(k)) return false;
+      seen.add(k); return true;
+    }).slice(0, 3);
+    let html = `<div class="sl-sheet-head"><div class="sl-sheet-title">${role}</div><div class="pcard-mid"></div><div class="sl-fill">${list.length ? `<b>${list.length}</b> candidate${list.length>1?'s':''}` : 'Empty'}</div></div>`;
+    if(list.length){
+      html += '<div class="section-label"><span>In order of preference</span></div><div class="results-list">' + list.map((p, i)=>
+        `<div class="pcard" data-key="${slEsc(p.key)}"><div class="avatar">${slEsc(initials(p.name))}</div>` +
+        `<div class="pcard-mid"><div class="pcard-name">${slEsc(p.name)}${i === 0 ? '<span class="sl-rank">First choice</span>' : ''}</div><div class="pcard-sub">${slSub(p)}</div></div>` +
+        (i > 0 ? `<button type="button" class="sl-mini-btn" data-up="${slEsc(p.key)}" aria-label="Make ${slEsc(p.name)} first choice" title="Make first choice">${SL_ICON.up}</button>` : '') +
+        `<button type="button" class="sl-mini-btn danger" data-rm="${slEsc(p.key)}" aria-label="Remove ${slEsc(p.name)} from shortlist" title="Remove">${SL_ICON.x}</button></div>`
+      ).join('') + '</div>';
+    }
+    if(pool.length){
+      html += '<div class="section-label"><span>From your recent searches</span></div><div class="results-list">' + pool.map(p=>
+        `<div class="pcard" data-pool="${slEsc(slKey(p))}"><div class="avatar">${slEsc(initials(p.name))}</div>` +
+        `<div class="pcard-mid"><div class="pcard-name">${slEsc(p.name)}</div><div class="pcard-sub">${slSub(p)}</div></div>` +
+        `<div class="pcard-stat">${slStatHtml(p)}</div>` +
+        `<button type="button" class="sl-add" data-add="${slEsc(slKey(p))}" aria-pressed="false" aria-label="Add ${slEsc(p.name)} at ${role}" title="Add at ${role}">${SL_ICON.plus}</button></div>`
+      ).join('') + '</div>';
+    } else if(!list.length){
+      html += `<div class="sl-sheet-note">No ${plural.toLowerCase()} in your recent searches yet. Ask Recon for one and tap <b>+</b> on a result.</div>`;
+    }
+    html += `<div class="btn-row"><button type="button" class="auth-btn btn-ghost" data-act="search">${SL_ICON.search} Find ${plural.toLowerCase()} in Scout</button></div>`;
+    body.innerHTML = html;
+
+    body.querySelectorAll('[data-up]').forEach(b=> b.onclick = e=>{ e.stopPropagation(); slPromote(role, b.dataset.up); paint(); shortlistChanged(); });
+    body.querySelectorAll('[data-rm]').forEach(b=> b.onclick = e=>{ e.stopPropagation(); slDetach(b.dataset.rm); paint(); shortlistChanged(); });
+    body.querySelectorAll('[data-add]').forEach(b=> b.onclick = e=>{
+      e.stopPropagation();
+      const p = shortlistPool.find(x=> slKey(x) === b.dataset.add);
+      if(!p) return;
+      const result = slAdd(role, p);
+      showScreenToast(`<b>${slEsc(slSurname(p.name))}</b> added at ${role}${result === 'alternate' ? ' as an alternate' : ''}`);
+      paint(); shortlistChanged(role);
+    });
+    // Tapping a candidate with stats opens their profile, as it does in Scout.
+    body.querySelectorAll('.pcard[data-key]').forEach(c=> c.onclick = ()=>{
+      const p = (shortlist.slots[role] || []).find(x=> x.key === c.dataset.key);
+      if(p && !p.isRealNoStats && p.s){ s.close(); openProfile(p); }
+    });
+    body.querySelector('[data-act="search"]').onclick = ()=>{
+      s.close();
+      setTab('scout');
+      input.value = `${plural} for ${role}, GBE eligible`;
+      input.focus();
+    };
+  }
+  paint();
+}
+
+/* ---- The + on Scout cards and the profile button ---- */
+function shortlistButtonHtml(p){
+  const at = slWhere(slKey(p));
+  return `<button type="button" class="sl-add" data-sl-key="${slEsc(slKey(p))}" aria-pressed="${at ? 'true' : 'false'}" aria-label="${at ? `On shortlist${at === 'unplaced' ? '' : ' at ' + at}` : `Add ${slEsc(p.name)} to shortlist`}" title="${at ? `On shortlist${at === 'unplaced' ? '' : ' · ' + at}` : 'Add to shortlist'}">${at ? SL_ICON.check : SL_ICON.plus}</button>`;
+}
+function wireShortlistButton(btn, p){
+  btn.onclick = e=>{ e.stopPropagation(); openAddSheet(p); };
+}
+function refreshShortlistButtons(){
+  document.querySelectorAll('.sl-add[data-sl-key]').forEach(b=>{
+    const at = slWhere(b.dataset.slKey);
+    b.setAttribute('aria-pressed', at ? 'true' : 'false');
+    b.innerHTML = at ? SL_ICON.check : SL_ICON.plus;
+    b.title = at ? `On shortlist${at === 'unplaced' ? '' : ' · ' + at}` : 'Add to shortlist';
+    b.setAttribute('aria-label', at ? `On shortlist${at === 'unplaced' ? '' : ' at ' + at}` : 'Add to shortlist');
+  });
+  const pb = document.getElementById('profile-shortlist-btn');
+  if(pb && pb._player) paintProfileShortlistBtn(pb, pb._player);
+}
+function paintProfileShortlistBtn(btn, p){
+  const at = slWhere(slKey(p));
+  btn._player = p;
+  btn.setAttribute('aria-pressed', at ? 'true' : 'false');
+  btn.innerHTML = at ? `${SL_ICON.check} On shortlist${at === 'unplaced' ? '' : ' · ' + at}` : `${SL_ICON.pitch} Add to shortlist`;
+  btn.onclick = ()=>{
+    const now = slWhere(slKey(p));
+    if(now && now !== 'unplaced') openSlotSheet(now); else openAddSheet(p);
+  };
 }
 
 document.getElementById('back-btn').onclick = closeSecondary;
