@@ -642,13 +642,13 @@
               <option value="365">1 year</option>
             </select>
           </div>
-          <div class="auth-note">Applies to each user's saved conversations, and to submitted reports (drafts are never auto-deleted), when they next sign in. Without a backend there's no scheduled job, so this can't run in the background for everyone at once — a production deployment needs a server-side task for that. Conversations and reports contain player personal data (and, via the Academy role, potentially youth data), so a retention period should be set deliberately with legal input rather than left indefinite.</div>
+          <div class="auth-note">Applies to each user's saved conversations and shortlisted players, and to submitted reports (drafts are never auto-deleted), when they next sign in. Without a backend there's no scheduled job, so this can't run in the background for everyone at once — a production deployment needs a server-side task for that. Conversations and reports contain player personal data (and, via the Academy role, potentially youth data), so a retention period should be set deliberately with legal input rather than left indefinite.</div>
 
           <div class="section-label">Erase a user's data (GDPR)</div>
           <div class="add-filter-row"><label>User email</label><input id="erase-username" type="text" placeholder="person@club.co.uk"></div>
           <div class="auth-error" id="erase-error"></div>
           <button class="auth-btn" id="erase-user-btn" style="background:var(--brick); color:#fff;">Erase all data for this user</button>
-          <div class="auth-note">Permanently deletes that user's entire conversation history, any reports they authored, and their account. Recorded in the audit log. This cannot be undone.</div>
+          <div class="auth-note">Permanently deletes that user's entire conversation history, their shortlist, any reports they authored, and their account. Recorded in the audit log. This cannot be undone.</div>
 
           <div class="section-label">Audit log</div>
           <div id="audit-log-list"></div>
@@ -803,6 +803,7 @@ function generatePool(){
         });
 
         pool.push({
+          id: 'gen:' + seed, // stable per player — names repeat (e.g. two "D. Trentham" at one club), so never key on name
           name: `${initial}. ${surname}`, club, league: CLUB_LEAGUE[club] || null,
           age: seasons[2024].age, pos, value, gbe, s: seasons[2024].s, // default view = most recent season
           seasons,
@@ -815,6 +816,7 @@ function generatePool(){
 const POOL = generatePool();
 
 const POS_MAP = [
+  [/goal.?keepers?|\bkeepers?\b|\bgks?\b|goalies?/i,"GK"], // only the real squad lists have goalkeepers — the stats pool doesn't
   [/centre.?back|center.?back|\bcbs?\b|central defender/i,"CB"],
   [/full.?back|\bfb\b|wing.?back/i,"FB"],
   [/winger|\bwg\b|wide (forward|player)/i,"WG"],
@@ -1000,7 +1002,7 @@ function parseQuery(text){
   const filters = [];
   let position = null;
   for(const [re,code] of POS_MAP){ if(re.test(text)){ position = code; break; } }
-  if(position) filters.push({t:"Position", v:{CB:"Centre-Back",FB:"Full-Back",WG:"Winger",ST:"Striker",CM:"Midfielder",DEF:"Defender (CB or FB)"}[position]});
+  if(position) filters.push({t:"Position", v:{GK:"Goalkeeper",CB:"Centre-Back",FB:"Full-Back",WG:"Winger",ST:"Striker",CM:"Midfielder",DEF:"Defender (CB or FB)"}[position]});
 
   let metric = null;
   for(const m of METRIC_MAP){ if(m.test.test(text)){ metric = m; break; } }
@@ -1141,7 +1143,7 @@ const ASSISTANT_TOOLS = [
     input_schema: {
       type: "object",
       properties: {
-        position: { type: "string", enum: ["CB","FB","WG","ST","CM","DEF"], description: "CB=centre-back, FB=full-back, WG=winger, ST=striker, CM=central midfielder, DEF=any defender" },
+        position: { type: "string", enum: ["GK","CB","FB","WG","ST","CM","DEF"], description: "GK=goalkeeper, CB=centre-back, FB=full-back, WG=winger, ST=striker, CM=central midfielder, DEF=any defender" },
         league: { type: "string", enum: ["Championship","League One","League Two","Scottish Premiership","Eredivisie"] },
         club: { type: "string", description: "Club name — nicknames and minor misspellings are resolved automatically" },
         playerName: { type: "string", description: "Search for a specific player by name (exact substring match)" },
@@ -1355,7 +1357,7 @@ async function parseQueryAI(text){
 
 Respond with ONLY a JSON object, no other text, no markdown fences, in exactly this shape:
 {
-  "position": one of "CB" (centre-back), "FB" (full-back), "WG" (winger), "ST" (striker/forward), "CM" (central midfielder), "DEF" (defender, unspecified CB or FB), or null,
+  "position": one of "GK" (goalkeeper), "CB" (centre-back), "FB" (full-back), "WG" (winger), "ST" (striker/forward), "CM" (central midfielder), "DEF" (defender, unspecified CB or FB), or null,
   "metric": one of ${JSON.stringify(NLQ_METRIC_KEYS)}, or null — pick whichever the query is asking to rank/filter by, matching intent even if worded very differently. Examples: "who wins the ball in the air most" means "aerial"; "underachieving strikers" or "should be scoring more" or "wasteful in front of goal" means "xgdiff_under" (ranked worst-first); "high performance xG", "clinical finishers", "beating their xG", "outperforming expected goals" means "xgdiff_over" (ranked best-first, the OPPOSITE of xgdiff_under — do not confuse these two); a bare mention of "xG" or "expected goals" with no under/over/high/low qualifier means "xg" (ranked by raw xG value, highest first),
   "ageMin": a number (the minimum age mentioned, e.g. "over 30" or "aged 25+"), or null,
   "ageMax": a number (the maximum age mentioned), or null,
@@ -1383,8 +1385,8 @@ Respond with ONLY a JSON object, no other text, no markdown fences, in exactly t
   // Convert into the exact same shape parseQuery() produces, so every downstream function
   // (runSearch, runLiveSearch, runRealSquadSearch) works identically regardless of which parser ran.
   const filters = [];
-  const position = ["CB","FB","WG","ST","CM","DEF"].includes(parsed.position) ? parsed.position : null;
-  if(position) filters.push({t:"Position", v:{CB:"Centre-Back",FB:"Full-Back",WG:"Winger",ST:"Striker",CM:"Midfielder",DEF:"Defender (CB or FB)"}[position]});
+  const position = ["GK","CB","FB","WG","ST","CM","DEF"].includes(parsed.position) ? parsed.position : null;
+  if(position) filters.push({t:"Position", v:{GK:"Goalkeeper",CB:"Centre-Back",FB:"Full-Back",WG:"Winger",ST:"Striker",CM:"Midfielder",DEF:"Defender (CB or FB)"}[position]});
 
   const metric = METRIC_MAP.find(m=>m.key===parsed.metric) || null;
   if(metric) filters.push({t:"Metric", v: metric.label});
@@ -1441,7 +1443,7 @@ async function parseQuerySmart(text){
 
 function rebuildFiltersDisplay(parsed){
   const filters = [];
-  if(parsed.position) filters.push({t:"Position", v:{CB:"Centre-Back",FB:"Full-Back",WG:"Winger",ST:"Striker",CM:"Midfielder",DEF:"Defender (CB or FB)"}[parsed.position]});
+  if(parsed.position) filters.push({t:"Position", v:{GK:"Goalkeeper",CB:"Centre-Back",FB:"Full-Back",WG:"Winger",ST:"Striker",CM:"Midfielder",DEF:"Defender (CB or FB)"}[parsed.position]});
   if(parsed.metric) filters.push({t:"Metric", v: parsed.metric.label});
   if(parsed.ageMin && parsed.ageMax) filters.push({t:"Age", v:parsed.ageMin+"–"+parsed.ageMax});
   else if(parsed.ageMax) filters.push({t:"Age", v:"Under "+parsed.ageMax});
@@ -1584,7 +1586,12 @@ function filterAndSort(parsed){
 
   let pool = applyFilters(position, ageMin, ageMax, league, club, budgetMax, gbeReq, season, nameQuery);
 
-  if(pool.length===0){
+  // The stats pool has no goalkeepers at all, so loosening other filters (or dropping the
+  // position and showing outfield players) can never answer a goalkeeper search. Return no
+  // stats matches and say so; real squad goalkeepers are merged in afterwards when live.
+  const noGoalkeeperStats = position === 'GK';
+
+  if(pool.length===0 && !noGoalkeeperStats){
     fellBack = true;
     // DEF-04: loosen ONE constraint at a time (budget, then age, then league/club, then GBE —
     // position kept longest) instead of discarding everything. Whatever's dropped here is
@@ -1633,7 +1640,7 @@ function filterAndSort(parsed){
     return {...p, statLabel, statVal};
   });
 
-  return {parsed: effectiveParsed, fellBack, noNameMatch: false, droppedFilters, results, totalMatches};
+  return {parsed: effectiveParsed, fellBack, noNameMatch: false, noGoalkeeperStats, droppedFilters, results, totalMatches};
 }
 
 async function runSearch(text){
@@ -1663,6 +1670,7 @@ async function sbFetch(path){
 function mapLivePosition(posName){
   if(!posName) return "N/A";
   const p = posName.toLowerCase();
+  if(/goalkeeper|keeper/.test(p)) return "GK";
   if(/back.?(centre|center)|centre.?back|center.?back/.test(p)) return "CB";
   if(/back/.test(p)) return "FB";
   if(/wing|right midfield|left midfield/.test(p)) return "WG";
@@ -1691,6 +1699,7 @@ async function loadLiveData(){
     lineups.forEach(team=>{
       team.lineup.forEach(pl=>{
         byPlayer[pl.player_name] = {
+          id: pl.player_id != null ? 'sb:' + pl.player_id : undefined,
           name: pl.player_name,
           club: team.team_name,
           pos: mapLivePosition(pl.positions && pl.positions[0] && pl.positions[0].position),
@@ -2070,7 +2079,7 @@ async function loadPlayerStats(){
 // API-Football's own coarse buckets — broader than the illustrative pool's CB/FB/WG/ST/CM,
 // so a query for "centre-backs" also matches "full-backs" here; that's an honest granularity
 // gap, not a bug, and the UI says so.
-const REAL_POSITION_MAP = { CB:"Defender", FB:"Defender", DEF:"Defender", WG:"Midfielder", CM:"Midfielder", ST:"Attacker" };
+const REAL_POSITION_MAP = { GK:"Goalkeeper", CB:"Defender", FB:"Defender", DEF:"Defender", WG:"Midfielder", CM:"Midfielder", ST:"Attacker" };
 
 async function realSquadFromParsed(parsed){
   let squad;
@@ -2217,6 +2226,7 @@ function openThread(id){
   const th = threads.find(t=>t.id===id);
   if(!th) return;
   currentThreadId = id;
+  setTab('scout'); // the thread renders into the Scout panel — show it even if the Shortlist tab was open
   const chatScroll = document.getElementById('chat-scroll');
   chatScroll.innerHTML = '';
   document.getElementById('starter-chips').classList.add('hide');
@@ -2293,6 +2303,7 @@ function resetChatToEmpty(){
 }
 function newChat(){
   resetChatToEmpty();
+  setTab('scout'); // otherwise, from the Shortlist tab, the new chat opens behind the pitch
   closeDrawer();
   renderDrawer();
 }
@@ -2342,11 +2353,12 @@ async function mergeRealSquadIntoResults(response){
   const normalized = response.realSquad.players.map(rp => {
     const entry = rp.id != null ? statsById.get(rp.id) : null;
     const real = entry && entry.seasons ? entry.seasons[requestedSeason] : null; // specific season only — no fallback to a different one
+    const id = rp.id != null ? 'efl:' + rp.id : undefined;
     if(!real){
-      return { name: rp.name, club: rp.club, age: rp.age, pos: rp.position, value: undefined, gbe: undefined, s: {}, isRealNoStats: true, statLabel: 'DATA', statVal: '—' };
+      return { id, name: rp.name, club: rp.club, age: rp.age, pos: rp.position, value: undefined, gbe: undefined, s: {}, isRealNoStats: true, statLabel: 'DATA', statVal: '—' };
     }
     return {
-      name: rp.name, club: rp.club, age: rp.age, pos: rp.position, value: undefined, gbe: undefined,
+      id, name: rp.name, club: rp.club, age: rp.age, pos: rp.position, value: undefined, gbe: undefined,
       s: {
         goals: real.goals, assists: real.assists, tackles: real.tackles, interceptions: real.interceptions,
         keyPasses: real.keyPasses, passAcc: real.passAccuracy, dribbles: real.dribblesSuccess,
@@ -2622,7 +2634,9 @@ function buildAssistantBlock(response, animate, sourceLabel){
   const block = document.createElement('div');
   block.className = 'assistant-block';
   const droppedList = response.droppedFilters || [];
-  const fallbackHtml = response.noNameMatch
+  const fallbackHtml = response.noGoalkeeperStats
+    ? `<div class="fallback-note">Recon's stats pool has no goalkeepers. ${(response.realSquad && response.realSquad.players && response.realSquad.players.length) ? 'The goalkeepers below come from real squad lists, without stats.' : 'Goalkeepers only come from real squad lists, which load when Live data is on in Settings.'}</div>`
+    : response.noNameMatch
     ? `<div class="fallback-note">No player matching that name exists in this pool — showing zero results rather than substituting an unrelated "close" name.</div>`
     : response.fellBack
     ? `<div class="fallback-note">${droppedList.length ? `No exact match, so ${droppedList.join(' and ')} ${droppedList.length>1?'were':'was'} relaxed to find these — the filters above now reflect what's actually applied.` : `Nothing matched at all — showing the full pool as a starting point.`}</div>`
@@ -2648,7 +2662,7 @@ function buildAssistantBlock(response, animate, sourceLabel){
     </div>
     <div class="add-filter-panel">
       <div class="add-filter-row" data-field="position"><label>Position</label>
-        <select><option value="" disabled selected hidden>Position</option><option value="CB">Centre-Back</option><option value="FB">Full-Back</option><option value="DEF">Defender (either)</option><option value="WG">Winger</option><option value="CM">Midfielder</option><option value="ST">Striker</option></select>
+        <select><option value="" disabled selected hidden>Position</option><option value="GK">Goalkeeper</option><option value="CB">Centre-Back</option><option value="FB">Full-Back</option><option value="DEF">Defender (either)</option><option value="WG">Winger</option><option value="CM">Midfielder</option><option value="ST">Striker</option></select>
       </div>
       <div class="add-filter-row" data-field="league"><label>League</label>
         <select><option value="" disabled selected hidden>League</option><option value="Championship">Championship</option><option value="League One">League One</option><option value="League Two">League Two</option><option value="Scottish Premiership">Scottish Premiership</option><option value="Eredivisie">Eredivisie</option></select>
@@ -2682,7 +2696,7 @@ function buildAssistantBlock(response, animate, sourceLabel){
   const PAGE_SIZE = 10;
   let currentSortMode = 'relevance';
 
-  const FIELD_LABELS = {CB:"Centre-Back",FB:"Full-Back",WG:"Winger",ST:"Striker",CM:"Midfielder",DEF:"Defender (CB or FB)"};
+  const FIELD_LABELS = {GK:"Goalkeeper",CB:"Centre-Back",FB:"Full-Back",WG:"Winger",ST:"Striker",CM:"Midfielder",DEF:"Defender (CB or FB)"};
 
   function renderFilterChips(){
     const fc = block.querySelector('.filter-chips');
@@ -2813,33 +2827,14 @@ function buildAssistantBlock(response, animate, sourceLabel){
       const card = document.createElement('div');
       card.className = p.isRealNoStats ? 'pcard real-pcard' : 'pcard';
       card.style.animationDelay = animate ? (idx*70)+'ms' : '0ms';
+      card.innerHTML = playerCardHtml(p, { showForm: true, actions: shortlistButtonHtml(p) });
+      // Real-squad entries can be shortlisted (they're the only source of goalkeepers).
+      wireShortlistButton(card.querySelector('.sl-add'), p);
       if(p.isRealNoStats){
-        card.innerHTML = `
-          <div class="avatar">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
-          <div class="pcard-mid">
-            <div class="pcard-name">${p.name}</div>
-            <div class="pcard-sub"><span class="real-badge" style="margin-right:6px;">Real</span>${p.pos} · ${p.club}${p.age?' · '+p.age:''}</div>
-          </div>
-          <div class="pcard-stat"><div class="val" style="color:var(--text-dim); font-size:11px;">No stats</div></div>
-          ${shortlistButtonHtml(p)}`;
-        // no onclick — real-squad entries are identity-only, there's no profile data to show.
-        // They can still be shortlisted, and they're the only source of goalkeepers.
-        wireShortlistButton(card.querySelector('.sl-add'), p);
+        // no onclick — real-squad entries are identity-only, there's no profile data to show
         list.appendChild(card);
         return;
       }
-      const showGbe = canSee('gbe');
-      const showValueStat = canSee('value') || p.statLabel !== 'VALUE';
-      const formHtml = p.clubForm ? ` · <span style="font-family:'IBM Plex Mono',monospace; color:var(--sage); letter-spacing:.05em;">${p.clubForm.form}</span>` : '';
-      card.innerHTML = `
-        <div class="avatar">${p.name.split(' ').map(w=>w[0]).join('')}</div>
-        <div class="pcard-mid">
-          <div class="pcard-name">${p.name}</div>
-          <div class="pcard-sub">${p.pos} · ${p.club}${p.age?' · '+p.age:''}${(p.gbe && showGbe) ? ' <span class="gbe-dot"></span>GBE' : ''}${formHtml}</div>
-        </div>
-        <div class="pcard-stat">${showValueStat ? `<div class="val">${p.statVal}</div><div class="lab">${p.statLabel}</div>` : `<div class="val" style="color:var(--text-dim); font-size:11px;">Restricted</div>`}</div>
-        ${shortlistButtonHtml(p)}`;
-      wireShortlistButton(card.querySelector('.sl-add'), p);
       card.onclick = ()=> openProfile(p);
       list.appendChild(card);
     });
@@ -3421,6 +3416,7 @@ async function saveRetention(){
 // version left both of those carrying the erased user's real name/email forever.
 async function eraseUserData(username){
   await kvDelete(threadsKey(username));
+  await kvDelete(shortlistKey(username)); // their shortlist holds player data too
 
   reports = reports.filter(r => r.authorUsername !== username);
   reports.forEach(r=>{
@@ -4207,8 +4203,9 @@ async function signOut(reason){
   enabledSources = {};
   auditLog = [];
   shortlist = slCreate(); // the next person to sign in on this device loads their own
+  shortlistLoaded = false;
   shortlistPool = [];
-  screen.querySelectorAll('.sl-sheet-wrap').forEach(n=> n.remove());
+  slOpenSheets.forEach(close=> close());
   setTab('scout');
   renderShortlist();
   currentUser = null;
@@ -4279,8 +4276,8 @@ const SL_FALLBACK = {
   LST:['ST','RST'], RST:['ST','LST'], ST:['LST','RST','AM'],
   LM:['LW','LWB','LAM','LCM'], RM:['RW','RWB','RAM','RCM'],
   LW:['LM','LAM','LWB'], RW:['RM','RAM','RWB'],
-  LAM:['LW','LM','AM'], RAM:['RW','RM','AM'], AM:['CM','ST','DM'],
-  LWB:['LB','LM'], RWB:['RB','RM'], LB:['LWB'], RB:['RWB'],
+  LAM:['LW','LM','AM','LCM'], RAM:['RW','RM','AM','RCM'], AM:['CM','ST','DM','LAM','RAM','LW','RW'],
+  LWB:['LB','LM','LW'], RWB:['RB','RM','RW'], LB:['LWB'], RB:['RWB'],
   CB:['LCB','RCB'], LCB:['CB','RCB'], RCB:['CB','LCB'],
   DM:['CM','LDM','RDM','LCM','RCM'], LDM:['DM','LCM','CM'], RDM:['DM','RCM','CM'],
   CM:['DM','AM','LCM','RCM'], LCM:['CM','LDM','DM','RCM'], RCM:['CM','RDM','DM','LCM'],
@@ -4310,8 +4307,10 @@ const SL_PITCH_SVG =
   '</svg>';
 
 function slEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function slSurname(name){ const parts = String(name||'').trim().split(/\s+/); return parts[parts.length-1] || '?'; }
-function slKey(p){ return (p.name||'') + '|' + (p.club||''); }
+// "J. Okafor" → "Okafor"; "Sepp van den Berg" → "van den Berg" (everything after the first name).
+function slSurname(name){ const parts = String(name||'').trim().split(/\s+/).filter(Boolean); return parts.length > 1 ? parts.slice(1).join(' ') : (parts[0] || '?'); }
+// A stable id from the data when there is one; name + club + position only as a last resort.
+function slKey(p){ return p.id != null ? String(p.id) : [p.name||'', p.club||'', p.pos||''].join('|'); }
 function slPosCodes(pos){
   if(SL_REAL_POS[pos]) return SL_REAL_POS[pos];
   if(pos === 'DEF') return ['CB','FB'];
@@ -4325,14 +4324,28 @@ function slSlotPos(role){ return (SL_ROLE_ACCEPTS[role] || ['CM'])[0]; }
 
 /* State: { formation, slots: { LCB: [first choice, alternate, …] }, unplaced: [{ from, players }] } */
 function slCreate(formation){ return { formation: formation || '4-3-3', slots: {}, unplaced: [] }; }
+// Stored state is untrusted: keep only well-formed players, and anything in a slot the saved
+// formation doesn't have waits below the pitch instead of being counted but never shown.
 function slNormalize(raw){
-  const s = slCreate(raw && SL_FORMATIONS[raw.formation] ? raw.formation : undefined);
+  const s = slCreate(raw && Object.prototype.hasOwnProperty.call(SL_FORMATIONS, raw.formation) ? raw.formation : undefined);
+  const roles = slRoles(s.formation);
+  const clean = list => (Array.isArray(list) ? list : [])
+    .filter(p=> p && typeof p === 'object' && typeof p.name === 'string' && p.name)
+    .map(p=>{ if(!p.key) p.key = slKey(p); return p; });
   if(raw && raw.slots && typeof raw.slots === 'object'){
     for(const [role, list] of Object.entries(raw.slots)){
-      if(SL_ROLE_ACCEPTS[role] && Array.isArray(list) && list.length) s.slots[role] = list.filter(p=> p && p.name);
+      const players = clean(list);
+      if(!players.length) continue;
+      if(roles.includes(role)) s.slots[role] = players;
+      else s.unplaced.push({ from: String(role), players });
     }
   }
-  if(raw && Array.isArray(raw.unplaced)) s.unplaced = raw.unplaced.filter(g=> g && Array.isArray(g.players) && g.players.length);
+  if(raw && Array.isArray(raw.unplaced)){
+    raw.unplaced.forEach(g=>{
+      const players = g && typeof g === 'object' ? clean(g.players) : [];
+      if(players.length) s.unplaced.push({ from: String(g.from || '?'), players });
+    });
+  }
   return s;
 }
 function slWhere(key){
@@ -4349,10 +4362,14 @@ function slDetach(key){
     .map(g=> ({ from: g.from, players: g.players.filter(p=> p.key !== key) }))
     .filter(g=> g.players.length);
 }
+// Only what the Shortlist, the profile and a report read — not every season's stats.
+const SL_SNAPSHOT_FIELDS = ['id','name','club','league','pos','age','value','gbe','s','statVal','statLabel','isRealNoStats','clubForm','standing','teamStats','season'];
 function slSnapshot(p){
-  let copy;
-  try{ copy = JSON.parse(JSON.stringify(p)); } catch(e){ copy = { name: p.name, club: p.club, pos: p.pos, age: p.age }; }
+  const copy = {};
+  SL_SNAPSHOT_FIELDS.forEach(f=>{ if(p[f] !== undefined) copy[f] = p[f]; });
+  try{ Object.assign(copy, JSON.parse(JSON.stringify(copy))); } catch(e){ /* plain data — a failed deep copy just keeps the shallow one */ }
   copy.key = slKey(p);
+  copy.addedAt = p.addedAt || Date.now(); // kept when a player moves slots, so retention counts from the first add
   return copy;
 }
 // Returns 'first' when the slot was empty, else 'alternate'. Moves the player if already shortlisted.
@@ -4378,8 +4395,17 @@ function slSetFormation(next){
   groups.forEach(g=>{ if(target.includes(g.from) && !out[g.from]) out[g.from] = g.players; else left.push(g); });
   const still = [];
   left.forEach(g=>{
-    const to = (SL_FALLBACK[g.from] || []).find(r=> target.includes(r) && !out[r]);
-    if(to) out[to] = g.players; else still.push(g);
+    // A fallback slot must take the player's position. Whoever it accepts moves together (order
+    // kept); anyone it doesn't (a winger alternate behind a CM at LM) tries the next fitting
+    // fallback, and only waits below the pitch when no free slot takes them.
+    let remaining = g.players;
+    while(remaining.length){
+      const to = (SL_FALLBACK[g.from] || []).find(r=> target.includes(r) && !out[r] && slAccepts(r, remaining[0].pos));
+      if(!to) break;
+      out[to] = remaining.filter(p=> slAccepts(to, p.pos));
+      remaining = remaining.filter(p=> !slAccepts(to, p.pos));
+    }
+    if(remaining.length) still.push({ from: g.from, players: remaining });
   });
   shortlist.formation = next; shortlist.slots = out; shortlist.unplaced = still;
   return still;
@@ -4387,24 +4413,49 @@ function slSetFormation(next){
 function slFilled(){ return slRoles(shortlist.formation).filter(r=> (shortlist.slots[r] || []).length).length; }
 
 let shortlist = slCreate();
+let shortlistLoaded = false; // false until this user's saved shortlist is in memory — nothing may save over it before then
 let shortlistPool = []; // the most recently shown Scout results, offered when filling a slot
 let activeTab = 'scout';
 
 function shortlistKey(username){ return "recon-shortlist-v1:" + (username || (currentUser ? currentUser.username : "anon")); }
 async function loadShortlist(){
+  shortlistLoaded = false;
+  let pruned = false;
   try{
     const raw = await kvGet(shortlistKey());
     shortlist = raw ? slNormalize(JSON.parse(raw)) : slCreate();
+    // The club's retention period covers shortlists too (they hold player data per user),
+    // enforced at load time exactly like chat history and reports.
+    if(retentionDays){
+      const cutoff = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
+      const old = [];
+      Object.values(shortlist.slots).concat(shortlist.unplaced.map(g=> g.players)).forEach(list=> list.forEach(p=>{
+        if(!p.addedAt) p.addedAt = Date.now();
+        else if(p.addedAt < cutoff) old.push(p.key);
+      }));
+      old.forEach(k=> slDetach(k));
+      pruned = old.length > 0;
+    }
   } catch(e){
     console.error('Recon: failed to load shortlist', e);
     shortlist = slCreate();
   }
+  shortlistLoaded = true;
+  if(pruned) saveShortlist();
   renderShortlist();
   refreshShortlistButtons();
 }
 async function saveShortlist(){
+  if(!shortlistLoaded) return;
   const ok = await kvSet(shortlistKey(), JSON.stringify(shortlist));
   if(!ok) showScreenToast('Couldn’t save your shortlist just now — it may not be here next time you open Recon.');
+}
+// Entry points that change the shortlist call this first, so an edit can't land on the empty
+// default and then be saved over the real shortlist while it's still loading.
+function shortlistReady(){
+  if(shortlistLoaded) return true;
+  showScreenToast('Loading your shortlist — try again in a moment.');
+  return false;
 }
 function shortlistChanged(flashRole){
   renderShortlist(flashRole);
@@ -4431,15 +4482,56 @@ function showScreenToast(html){
   clearTimeout(t._timer);
   t._timer = setTimeout(()=> t.classList.remove('show'), 2400);
 }
-function openSheet(html){
+const SL_FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const slOpenSheets = new Set(); // close functions of sheets on screen — sign-out closes them properly (un-inerting the views)
+// A real modal: everything else in the screen goes inert (no tabbing or clicking behind it),
+// focus moves into the sheet, Escape closes it, and focus returns to whatever opened it.
+function openSheet(html, label){
+  const opener = document.activeElement;
   const wrap = document.createElement('div');
   wrap.className = 'sl-sheet-wrap';
-  wrap.innerHTML = '<div class="sl-sheet-scrim"></div><div class="sl-sheet" role="dialog" aria-modal="true"><div class="sl-sheet-inner"><div class="sl-sheet-handle"></div>' + html + '</div></div>';
+  wrap.innerHTML = '<div class="sl-sheet-scrim"></div><div class="sl-sheet" role="dialog" aria-modal="true" tabindex="-1"><div class="sl-sheet-inner"><div class="sl-sheet-handle"></div>' + html + '</div></div>';
+  const dialog = wrap.querySelector('.sl-sheet');
+  if(label) dialog.setAttribute('aria-label', label);
+  const madeInert = [...screen.children].filter(n=> !n.inert && !n.classList.contains('toast'));
+  madeInert.forEach(n=> n.inert = true);
   screen.appendChild(wrap);
   requestAnimationFrame(()=> requestAnimationFrame(()=> wrap.classList.add('show')));
-  function close(){ wrap.classList.remove('show'); setTimeout(()=> wrap.remove(), 340); }
+  (dialog.querySelector(SL_FOCUSABLE) || dialog).focus({ preventScroll: true });
+  let closed = false;
+  function close(){
+    if(closed) return;
+    closed = true;
+    slOpenSheets.delete(close);
+    document.removeEventListener('keydown', onKey, true);
+    madeInert.forEach(n=> n.inert = false);
+    wrap.classList.remove('show');
+    setTimeout(()=> wrap.remove(), 340);
+    if(opener && opener.isConnected && typeof opener.focus === 'function') opener.focus({ preventScroll: true });
+  }
+  function onKey(e){ if(e.key === 'Escape'){ e.stopPropagation(); close(); } }
+  document.addEventListener('keydown', onKey, true);
+  slOpenSheets.add(close);
   wrap.querySelector('.sl-sheet-scrim').onclick = close;
-  return { el: wrap.querySelector('.sl-sheet-inner'), close };
+  // Callers fill the sheet after opening it; this moves focus to the best control once they have.
+  function focusFirst(preferred){ (preferred || dialog.querySelector(SL_FOCUSABLE) || dialog).focus({ preventScroll: true }); }
+  return { el: wrap.querySelector('.sl-sheet-inner'), dialog, close, focusFirst };
+}
+// Re-rendering with innerHTML destroys the focused button. Remember which one it was (by its
+// data-* identity) and focus its replacement afterwards, so keyboard users don't drop to <body>.
+const SL_FOCUS_ATTRS = ['f','role','key','up','rm','add','act'];
+function slFocusToken(container){
+  const a = document.activeElement;
+  if(!a || !container.contains(a)) return null;
+  const cls = a.classList && a.classList[0];
+  for(const k of SL_FOCUS_ATTRS) if(a.dataset && a.dataset[k] !== undefined) return { el: a, cls, k, v: a.dataset[k] };
+  return { el: a, cls, k: null };
+}
+function slRestoreFocus(container, token){
+  if(!token || (token.el.isConnected && document.activeElement === token.el)) return; // still there and focused
+  let el = null;
+  if(token.k) el = [...container.querySelectorAll((token.cls ? '.' + token.cls : '') + `[data-${token.k}]`)].find(n=> n.dataset[token.k] === token.v && !n.disabled);
+  (el || container.querySelector(SL_FOCUSABLE) || container).focus({ preventScroll: true });
 }
 
 /* ---- Pitch ---- */
@@ -4464,7 +4556,9 @@ function renderPitch(el, o){
   layout.forEach(([role, x, y], i)=>{
     const b = el._sl.dots[i], players = shortlist.slots[role] || [], first = players[0];
     const cls = ['sl-dot', first ? 'is-filled' : 'is-empty'];
-    if(o.eligibleFor) cls.push(slAccepts(role, o.eligibleFor) ? 'is-eligible' : 'is-muted');
+    const muted = !!o.eligibleFor && !slAccepts(role, o.eligibleFor);
+    if(o.eligibleFor) cls.push(muted ? 'is-muted' : 'is-eligible');
+    b.disabled = muted; // not just pointer-events: a disabled button can't be reached or pressed by keyboard either
     if(o.selected === role) cls.push('is-selected');
     if(o.flash === role) cls.push('is-new');
     b.className = cls.join(' ');
@@ -4482,30 +4576,52 @@ function renderPitch(el, o){
 }
 
 function slStatHtml(p){
-  if(p.isRealNoStats || p.statVal == null || p.statVal === '—') return '<div class="val none">No stats</div>';
+  if(p.isRealNoStats || p.statVal == null) return '<div class="val none">No stats</div>';
   if(p.statLabel === 'VALUE' && !canSee('value')) return '<div class="val none">Restricted</div>';
   return `<div class="val">${slEsc(p.statVal)}</div><div class="lab">${slEsc(p.statLabel)}</div>`;
 }
 function slSub(p){ return `${slEsc(p.pos)} · ${slEsc(p.club)}${p.age ? ' · ' + slEsc(p.age) : ''}`; }
+function slGbeHtml(p){ return (p.gbe && canSee('gbe')) ? ' <span class="gbe-dot"></span>GBE' : ''; }
+
+// The player card's contents, wherever a player is listed: Scout results and both Shortlist
+// sheets. Callers wrap it in their own .pcard element.
+// opts: showForm (club form letters), rank (First choice badge), showStat (default true), actions (trailing buttons)
+function playerCardHtml(p, opts = {}){
+  const realBadge = p.isRealNoStats ? '<span class="real-badge" style="margin-right:6px;">Real</span>' : '';
+  const form = (opts.showForm && p.clubForm) ? ` · <span style="font-family:'IBM Plex Mono',monospace; color:var(--sage); letter-spacing:.05em;">${slEsc(p.clubForm.form)}</span>` : '';
+  const rank = opts.rank ? '<span class="sl-rank">First choice</span>' : '';
+  return `<div class="avatar">${slEsc(initials(p.name))}</div>` +
+    `<div class="pcard-mid"><div class="pcard-name">${slEsc(p.name)}${rank}</div><div class="pcard-sub">${realBadge}${slSub(p)}${slGbeHtml(p)}${form}</div></div>` +
+    (opts.showStat === false ? '' : `<div class="pcard-stat">${slStatHtml(p)}</div>`) +
+    (opts.actions || '');
+}
 
 /* ---- The Shortlist tab ---- */
 function renderShortlist(flashRole){
   document.getElementById('shortlist-count').textContent = slFilled() + '/11';
   if(activeTab !== 'shortlist' && !flashRole) return; // the rest only matters when visible
+  const panel = document.getElementById('panel-shortlist');
+  const focusToken = slFocusToken(panel);
   document.getElementById('shortlist-fill').innerHTML = `<b>${slFilled()}</b> of 11 filled`;
 
+  // Built once; later renders only move the checked state, so the chip a keyboard user just
+  // pressed keeps focus.
   const picker = document.getElementById('shortlist-formations');
-  picker.className = 'sl-formations';
-  picker.setAttribute('role', 'radiogroup');
-  picker.setAttribute('aria-label', 'Formation');
-  picker.innerHTML = SL_FORMATION_ORDER.map(f=> `<button type="button" class="sl-fchip" role="radio" aria-checked="${f === shortlist.formation}" data-f="${f}">${f}</button>`).join('');
-  picker.querySelectorAll('.sl-fchip').forEach(b=> b.onclick = ()=>{
-    const f = b.dataset.f;
-    const left = slSetFormation(f);
-    shortlistChanged();
-    const n = left.reduce((a, g)=> a + g.players.length, 0);
-    if(n) showScreenToast(`${n} player${n>1?'s':''} don’t fit ${f} · waiting below`);
-  });
+  if(!picker.children.length){
+    picker.className = 'sl-formations';
+    picker.setAttribute('role', 'radiogroup');
+    picker.setAttribute('aria-label', 'Formation');
+    picker.innerHTML = SL_FORMATION_ORDER.map(f=> `<button type="button" class="sl-fchip" role="radio" data-f="${f}">${f}</button>`).join('');
+    picker.querySelectorAll('.sl-fchip').forEach(b=> b.onclick = ()=>{
+      const f = b.dataset.f;
+      if(f === shortlist.formation || !shortlistReady()) return;
+      const left = slSetFormation(f);
+      shortlistChanged();
+      const n = left.reduce((a, g)=> a + g.players.length, 0);
+      if(n) showScreenToast(`${n} player${n>1?'s':''} don’t fit ${f} · waiting below`);
+    });
+  }
+  picker.querySelectorAll('.sl-fchip').forEach(b=> b.setAttribute('aria-checked', b.dataset.f === shortlist.formation ? 'true' : 'false'));
 
   renderPitch(document.getElementById('shortlist-pitch'), { flash: flashRole, onSlot: openSlotSheet });
 
@@ -4527,14 +4643,16 @@ function renderShortlist(flashRole){
   list.innerHTML = rows.length ? rows.map(r=>{
     const ps = shortlist.slots[r], p = ps[0];
     return `<button type="button" class="sl-row" data-role="${r}"><span class="sl-row-slot">${r}</span><span class="avatar">${slEsc(initials(p.name))}</span>` +
-      `<span class="pcard-mid"><span class="pcard-name">${slEsc(p.name)}${ps.length > 1 ? `<span class="sl-row-alts">+${ps.length-1}</span>` : ''}</span><span class="pcard-sub">${slEsc(p.club)}${p.age ? ' · ' + slEsc(p.age) : ''}</span></span>` +
+      `<span class="pcard-mid"><span class="pcard-name">${slEsc(p.name)}${ps.length > 1 ? `<span class="sl-row-alts">+${ps.length-1}</span>` : ''}</span><span class="pcard-sub">${slEsc(p.club)}${p.age ? ' · ' + slEsc(p.age) : ''}${slGbeHtml(p)}</span></span>` +
       `<span class="pcard-stat">${slStatHtml(p)}</span></button>`;
   }).join('') : '<div class="sl-empty"><div class="mark">RE<span>CON</span></div><p class="sl-hint">Nothing shortlisted yet. Tap + on any player in a Scout result.</p></div>';
   list.querySelectorAll('.sl-row').forEach(b=> b.onclick = ()=> openSlotSheet(b.dataset.role));
+  slRestoreFocus(panel, focusToken);
 }
 
 /* ---- Add sheet: choose a slot for a player ---- */
 function openAddSheet(p, onDone){
+  if(!shortlistReady()) return;
   const options = slEligibleRoles(shortlist.formation, p.pos);
   const current = slWhere(slKey(p));
   let pick = (current && current !== 'unplaced' && options.includes(current)) ? current
@@ -4543,11 +4661,12 @@ function openAddSheet(p, onDone){
     `<div class="sl-sheet-head"><div class="avatar">${slEsc(initials(p.name))}</div><div class="pcard-mid"><div class="pcard-name">${slEsc(p.name)}</div><div class="pcard-sub">${slSub(p)}</div></div></div>` +
     `<div class="section-label"><span>Choose a slot</span><span>${slEsc(shortlist.formation)}</span></div>` +
     '<div class="sl-mini"></div><div class="sl-sheet-note" aria-live="polite"></div>' +
-    '<div class="btn-row"><button type="button" class="auth-btn btn-ghost" data-act="cancel">Cancel</button><button type="button" class="auth-btn" data-act="add"></button></div>');
+    '<div class="btn-row"><button type="button" class="auth-btn btn-ghost" data-act="cancel">Cancel</button><button type="button" class="auth-btn" data-act="add"></button></div>',
+    `Add ${p.name} to shortlist`);
   const mini = s.el.querySelector('.sl-mini'), note = s.el.querySelector('.sl-sheet-note'), go = s.el.querySelector('[data-act="add"]');
   const sur = slEsc(slSurname(p.name));
   function paint(){
-    renderPitch(mini, { mini: true, eligibleFor: p.pos, selected: pick, onSlot: r=>{ pick = r; paint(); } });
+    renderPitch(mini, { mini: true, eligibleFor: p.pos, selected: pick, onSlot: r=>{ if(slAccepts(r, p.pos)){ pick = r; paint(); } } });
     const there = (shortlist.slots[pick] || []).filter(x=> x.key !== slKey(p));
     if(!pick){
       note.innerHTML = `No slot in <b>${slEsc(shortlist.formation)}</b> takes a ${slEsc(SL_POS_NAME[slPosCodes(p.pos)[0]] || p.pos || 'player with no listed position')}. Change formation on the Shortlist tab first.`;
@@ -4562,6 +4681,7 @@ function openAddSheet(p, onDone){
     go.textContent = pick ? 'Add to ' + pick : 'Add';
   }
   paint();
+  s.focusFirst(mini.querySelector('.sl-dot.is-selected') || go);
   s.el.querySelector('[data-act="cancel"]').onclick = s.close;
   go.onclick = ()=>{
     if(!pick) return;
@@ -4575,9 +4695,11 @@ function openAddSheet(p, onDone){
 
 /* ---- Slot sheet: a slot's candidates ---- */
 function openSlotSheet(role){
-  const s = openSheet('<div class="sl-slot-body"></div>');
+  if(!shortlistReady()) return;
+  const s = openSheet('<div class="sl-slot-body"></div>', `${role} candidates`);
   const body = s.el.querySelector('.sl-slot-body');
   function paint(){
+    const focusToken = slFocusToken(body);
     const list = shortlist.slots[role] || [];
     const plural = SL_POS_PLURAL[slSlotPos(role)];
     const seen = new Set();
@@ -4589,18 +4711,15 @@ function openSlotSheet(role){
     let html = `<div class="sl-sheet-head"><div class="sl-sheet-title">${role}</div><div class="pcard-mid"></div><div class="sl-fill">${list.length ? `<b>${list.length}</b> candidate${list.length>1?'s':''}` : 'Empty'}</div></div>`;
     if(list.length){
       html += '<div class="section-label"><span>In order of preference</span></div><div class="results-list">' + list.map((p, i)=>
-        `<div class="pcard" data-key="${slEsc(p.key)}"><div class="avatar">${slEsc(initials(p.name))}</div>` +
-        `<div class="pcard-mid"><div class="pcard-name">${slEsc(p.name)}${i === 0 ? '<span class="sl-rank">First choice</span>' : ''}</div><div class="pcard-sub">${slSub(p)}</div></div>` +
-        (i > 0 ? `<button type="button" class="sl-mini-btn" data-up="${slEsc(p.key)}" aria-label="Make ${slEsc(p.name)} first choice" title="Make first choice">${SL_ICON.up}</button>` : '') +
-        `<button type="button" class="sl-mini-btn danger" data-rm="${slEsc(p.key)}" aria-label="Remove ${slEsc(p.name)} from shortlist" title="Remove">${SL_ICON.x}</button></div>`
+        `<div class="pcard" data-key="${slEsc(p.key)}">` + playerCardHtml(p, { rank: i === 0, showStat: false, actions:
+          (i > 0 ? `<button type="button" class="sl-mini-btn" data-up="${slEsc(p.key)}" aria-label="Make ${slEsc(p.name)} first choice" title="Make first choice">${SL_ICON.up}</button>` : '') +
+          `<button type="button" class="sl-mini-btn danger" data-rm="${slEsc(p.key)}" aria-label="Remove ${slEsc(p.name)} from shortlist" title="Remove">${SL_ICON.x}</button>` }) + '</div>'
       ).join('') + '</div>';
     }
     if(pool.length){
       html += '<div class="section-label"><span>From your recent searches</span></div><div class="results-list">' + pool.map(p=>
-        `<div class="pcard" data-pool="${slEsc(slKey(p))}"><div class="avatar">${slEsc(initials(p.name))}</div>` +
-        `<div class="pcard-mid"><div class="pcard-name">${slEsc(p.name)}</div><div class="pcard-sub">${slSub(p)}</div></div>` +
-        `<div class="pcard-stat">${slStatHtml(p)}</div>` +
-        `<button type="button" class="sl-add" data-add="${slEsc(slKey(p))}" aria-pressed="false" aria-label="Add ${slEsc(p.name)} at ${role}" title="Add at ${role}">${SL_ICON.plus}</button></div>`
+        `<div class="pcard" data-pool="${slEsc(slKey(p))}">` + playerCardHtml(p, { actions:
+          `<button type="button" class="sl-add" data-add="${slEsc(slKey(p))}" aria-pressed="false" aria-label="Add ${slEsc(p.name)} at ${role}" title="Add at ${role}">${SL_ICON.plus}</button>` }) + '</div>'
       ).join('') + '</div>';
     } else if(!list.length){
       html += `<div class="sl-sheet-note">No ${plural.toLowerCase()} in your recent searches yet. Ask Recon for one and tap <b>+</b> on a result.</div>`;
@@ -4625,38 +4744,55 @@ function openSlotSheet(role){
     });
     body.querySelector('[data-act="search"]').onclick = ()=>{
       s.close();
+      closeSecondary(); // the sheet may have been opened from a profile — Scout is underneath it
       setTab('scout');
-      input.value = `${plural} for ${role}, GBE eligible`;
-      input.focus();
+      // GBE doesn't apply to the real-squad goalkeepers, so don't narrow that search by it.
+      input.value = role === 'GK' ? `${plural} for ${role}` : `${plural} for ${role}, GBE eligible`;
+      input.focus({ preventScroll: true });
     };
+    slRestoreFocus(body, focusToken);
   }
   paint();
+  s.focusFirst();
 }
 
 /* ---- The + on Scout cards and the profile button ---- */
+// The one place a shortlist button's state and wording come from (card +, profile button).
+function slButtonState(key, name){
+  const at = slWhere(key);
+  const where = at && at !== 'unplaced' ? at : '';
+  return {
+    on: !!at,
+    at,
+    text: at ? `On shortlist${where ? ' · ' + where : ''}` : 'Add to shortlist',
+    label: at ? `${name} is on your shortlist${where ? ' at ' + where : ''}` : `Add ${name} to shortlist`,
+  };
+}
+function paintShortlistButton(b){
+  const st = slButtonState(b.dataset.slKey, b.dataset.slName);
+  b.setAttribute('aria-pressed', st.on ? 'true' : 'false');
+  b.setAttribute('aria-label', st.label);
+  b.title = st.text;
+  b.innerHTML = st.on ? SL_ICON.check : SL_ICON.plus;
+}
 function shortlistButtonHtml(p){
-  const at = slWhere(slKey(p));
-  return `<button type="button" class="sl-add" data-sl-key="${slEsc(slKey(p))}" aria-pressed="${at ? 'true' : 'false'}" aria-label="${at ? `On shortlist${at === 'unplaced' ? '' : ' at ' + at}` : `Add ${slEsc(p.name)} to shortlist`}" title="${at ? `On shortlist${at === 'unplaced' ? '' : ' · ' + at}` : 'Add to shortlist'}">${at ? SL_ICON.check : SL_ICON.plus}</button>`;
+  return `<button type="button" class="sl-add" data-sl-key="${slEsc(slKey(p))}" data-sl-name="${slEsc(p.name)}"></button>`;
 }
 function wireShortlistButton(btn, p){
+  paintShortlistButton(btn);
   btn.onclick = e=>{ e.stopPropagation(); openAddSheet(p); };
 }
 function refreshShortlistButtons(){
-  document.querySelectorAll('.sl-add[data-sl-key]').forEach(b=>{
-    const at = slWhere(b.dataset.slKey);
-    b.setAttribute('aria-pressed', at ? 'true' : 'false');
-    b.innerHTML = at ? SL_ICON.check : SL_ICON.plus;
-    b.title = at ? `On shortlist${at === 'unplaced' ? '' : ' · ' + at}` : 'Add to shortlist';
-    b.setAttribute('aria-label', at ? `On shortlist${at === 'unplaced' ? '' : ' at ' + at}` : 'Add to shortlist');
-  });
+  document.querySelectorAll('.sl-add[data-sl-key]').forEach(paintShortlistButton);
   const pb = document.getElementById('profile-shortlist-btn');
   if(pb && pb._player) paintProfileShortlistBtn(pb, pb._player);
 }
 function paintProfileShortlistBtn(btn, p){
-  const at = slWhere(slKey(p));
+  const st = slButtonState(slKey(p), p.name);
   btn._player = p;
-  btn.setAttribute('aria-pressed', at ? 'true' : 'false');
-  btn.innerHTML = at ? `${SL_ICON.check} On shortlist${at === 'unplaced' ? '' : ' · ' + at}` : `${SL_ICON.pitch} Add to shortlist`;
+  btn.setAttribute('aria-pressed', st.on ? 'true' : 'false');
+  btn.setAttribute('aria-label', st.label);
+  btn.innerHTML = `${st.on ? SL_ICON.check : SL_ICON.pitch} ${st.text}`;
   btn.onclick = ()=>{
     const now = slWhere(slKey(p));
     if(now && now !== 'unplaced') openSlotSheet(now); else openAddSheet(p);
