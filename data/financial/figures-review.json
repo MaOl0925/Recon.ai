@@ -1,0 +1,39 @@
+{
+  "about": "Figures withheld because they failed a check, and assessments taken down. Written by scripts/financial/publish_figures.py; don't edit by hand.",
+  "figures": [
+    {
+      "league": "championship",
+      "club": "Fennick Rovers",
+      "club_slug": "fennick-rovers",
+      "year": 2023,
+      "field": "net_assets_m",
+      "label": "Net assets",
+      "value": 21.5,
+      "rule": "balance_sheet",
+      "reason": "Net assets aren't total assets minus total liabilities"
+    },
+    {
+      "league": "championship",
+      "club": "Westmarsh City",
+      "club_slug": "westmarsh-city",
+      "year": 2024,
+      "field": "revenue_total_m",
+      "label": "Revenue",
+      "value": 2024.0,
+      "rule": "year_as_money",
+      "reason": "Revenue reads as the year 2024"
+    },
+    {
+      "league": "eredivisie",
+      "club": "SC Duinwijk",
+      "club_slug": "sc-duinwijk",
+      "year": 2024,
+      "field": "net_profit_loss_m",
+      "label": "Net profit or loss",
+      "value": 5.0,
+      "rule": "lost_minus_sign",
+      "reason": "Net result has the right size but the wrong sign"
+    }
+  ],
+  "assessments": []
+}

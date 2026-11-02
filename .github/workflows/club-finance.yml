@@ -1,0 +1,33 @@
+name: Club finance figures
+
+# The release gate for the club finance data: a league file that skipped
+# scripts/financial/publish_figures.py, or a figure or assessment that fails its
+# checks, can't be merged.
+on:
+  pull_request:
+    paths:
+      - "data/financial/**"
+      - "scripts/financial/**"
+      - ".github/workflows/club-finance.yml"
+  push:
+    branches: [main]
+    paths:
+      - "data/financial/**"
+      - "scripts/financial/**"
+      - ".github/workflows/club-finance.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Pipeline tests
+        run: python -m unittest discover -s scripts/financial -p "test_*.py"
+      - name: Release gate
+        run: python scripts/financial/publish_figures.py --check
